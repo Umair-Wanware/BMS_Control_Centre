@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BMS Control Hub</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { max-width: 760px; margin: 2rem auto; padding: 0 1rem; background: #10151c; color: #e7edf5; }
+    h1 { margin-bottom: .2rem; } .subtle { color: #9aacbf; }
+    section { background: #18212c; border: 1px solid #293849; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+    dl { display:grid; grid-template-columns: 1fr auto; gap:.65rem; margin:0; } dt { color:#a9bbcf; } dd { margin:0; font-variant-numeric: tabular-nums; }
+    input, button { box-sizing:border-box; padding:.65rem; border-radius:6px; border:1px solid #3b5067; background:#0f1720; color:inherit; }
+    input { width:100%; margin:.5rem 0; } button { cursor:pointer; background:#1768a6; border:none; }
+    #status { min-height: 1.5rem; color:#a9bbcf; }
+  </style>
+</head>
+<body>
+  <h1>BMS Control Hub</h1>
+  <p id="status" class="subtle">Connecting…</p>
+  <section><h2>Battery telemetry</h2><dl id="telemetry"><dt>Status</dt><dd>Waiting for BMS data</dd></dl></section>
+  <section><h2>STM32 firmware update</h2>
+    <label for="image-path">LittleFS image path</label>
+    <input id="image-path" value="/firmware_update.bin" maxlength="128">
+    <button id="start-update">Start update</button>
+    <p id="update-state" class="subtle">No update running.</p>
+  </section>
+  <script>
+    const status = document.querySelector('#status');
+    const telemetry = document.querySelector('#telemetry');
+    const updateState = document.querySelector('#update-state');
+    const field = document.querySelector('#image-path');
+    function renderTelemetry(data) {
+      if (!data.available) { telemetry.innerHTML = '<dt>Status</dt><dd>Waiting for BMS data</dd>'; return; }
+      telemetry.innerHTML = `<dt>Voltage</dt><dd>${(data.voltage_mv / 1000).toFixed(3)} V</dd>
+        <dt>Current</dt><dd>${(data.current_ma / 1000).toFixed(3)} A</dd>
+        <dt>Temperature</dt><dd>${(data.temperature_centi_c / 100).toFixed(2)} °C</dd>
+        <dt>State of charge</dt><dd>${(data.soc_tenths_percent / 10).toFixed(1)} %</dd>
+        <dt>Fault flags</dt><dd>0x${data.fault_flags.toString(16).padStart(8, '0')}</dd>`;
+    }
+    async function refresh() {
+      try {
+        const [telemetryResponse, deviceResponse] = await Promise.all([fetch('/api/telemetry'), fetch('/api/device')]);
+        const telemetryData = await telemetryResponse.json(); const device = await deviceResponse.json();
+        renderTelemetry(telemetryData); status.textContent = device.access_point_active ? 'Access point active' : `Connected: ${device.ip || 'obtaining IP'}`;
+        updateState.textContent = `Update: ${device.update.state} (${device.update.transferred}/${device.update.image_size} bytes)`;
+      } catch (_) { status.textContent = 'Dashboard connection unavailable'; }
+    }
+    document.querySelector('#start-update').addEventListener('click', async () => {
+      const response = await fetch('/api/update', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path:field.value})});
+      updateState.textContent = response.ok ? 'Update accepted.' : `Unable to start update (${response.status})`;
+      refresh();
+    });
+    const socket = new WebSocket(`ws://${location.host}/ws`);
+    socket.onopen = () => socket.send('telemetry');
+    socket.onmessage = event => { try { renderTelemetry(JSON.parse(event.data)); } catch (_) {} };
+    setInterval(() => { if (socket.readyState === WebSocket.OPEN) socket.send('telemetry'); refresh(); }, 2000);
+    refresh();
+  </script>
+</body>
+</html>
