@@ -333,19 +333,28 @@ This project is released under the MIT License.
 
 ---
 
-## Author
+# Learning Objectives
+
+This project demonstrates practical knowledge of
+
+- Embedded C++
+- FreeRTOS
+- STM32 HAL
+- Firmware Architecture
+- Bootloader Design
+- Flash Programming
+- Embedded Communication Protocols
+- Embedded Software Design Patterns
+- Memory Management
+- Interrupt Handling
+- Embedded Driver Development
+
+---
+
+# Author
 
 **Umair Wanware**
 
-Embedded Software Developer
+Embedded Systems | Software Developer
 
-- Modern C++
-- Embedded Software
-- Firmware Development
-- STM32
-- ESP32
-- FreeRTOS
-- Bootloaders
-- Embedded Linux
-
----
+GitHub: https://github.com/Umair-Wanware
