@@ -9,7 +9,7 @@ namespace control_hub::application {
 Application::Application()
     : m_fileSystem(), m_storage(m_fileSystem), m_wifi(), m_spi(), m_communication(m_spi),
       m_telemetry(), m_firmwareUpdater(m_communication, m_fileSystem),
-      m_dashboard()
+      m_dashboard(&m_telemetry)
 {
 }
 
