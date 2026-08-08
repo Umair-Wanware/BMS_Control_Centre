@@ -1,5 +1,6 @@
 #include "dashboard_manager.hpp"
 
+#include "communication/telemetry.hpp"
 #include "esp_http_server.h"
 #include "esp_log.h"
 
@@ -27,7 +28,7 @@ bool DashboardManager::Init()
         .uri = "/",
         .method = HTTP_GET,
         .handler = IndexHandler,
-        .user_ctx = nullptr
+        .user_ctx = this
     };
 
     httpd_register_uri_handler(server, &index);
@@ -37,7 +38,7 @@ bool DashboardManager::Init()
         .uri = "/api/telemetry",
         .method = HTTP_GET,
         .handler = TelemetryHandler,
-        .user_ctx = nullptr
+        .user_ctx = this
     };
 
     httpd_register_uri_handler(server, &telemetry);
@@ -61,97 +62,727 @@ esp_err_t DashboardManager::IndexHandler(httpd_req_t *request)
     static const char page[] =
 R"rawliteral(
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-
-<title>BMS Control Hub</title>
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BMS Control Centre</title>
 <style>
-
-body{
-
-font-family:Arial;
-background:#111;
-color:white;
-text-align:center;
-
+:root {
+  color-scheme: dark;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #e9eef7;
+  background: #0b1119;
 }
-
-.card{
-
-width:300px;
-margin:auto;
-padding:20px;
-background:#222;
-border-radius:10px;
-
+* {
+  box-sizing: border-box;
 }
-
-.value{
-
-font-size:30px;
-
+html, body {
+  margin: 0;
+  min-height: 100%;
 }
-
+body {
+  background: radial-gradient(circle at 10% 10%, rgba(76, 210, 120, 0.12), transparent 24%),
+              radial-gradient(circle at 90% 10%, rgba(118, 123, 255, 0.14), transparent 28%),
+              linear-gradient(180deg, #0a0f17 0%, #09101a 100%);
+}
+.page-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  padding: 24px;
+  max-width: 1680px;
+  margin: 0 auto;
+}
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.brand,
+.status-card,
+.panel,
+.sidebar-menu,
+.sidebar-quick {
+  background: rgba(18, 25, 34, 0.92);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 24px;
+  padding: 22px;
+}
+.brand {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.brand-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #4cd288, #2cacff);
+  box-shadow: 0 14px 30px rgba(76, 210, 136, 0.18);
+}
+.brand-icon span {
+  font-size: 1.5rem;
+}
+.brand-title h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+.brand-title p {
+  margin: 4px 0 0;
+  color: #94a7c4;
+  font-size: 0.9rem;
+}
+.sidebar-menu {
+  display: grid;
+  gap: 10px;
+}
+.nav-item {
+  appearance: none;
+  border: none;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  color: #dbe5f6;
+  padding: 14px 18px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.nav-item:hover,
+.nav-item.active {
+  background: rgba(76, 210, 136, 0.14);
+  transform: translateX(2px);
+}
+.status-card h2,
+.panel h2,
+.panel h3 {
+  margin: 0 0 14px;
+  color: #f8fbff;
+}
+.status-list,
+.device-list,
+.fault-list,
+.event-list,
+.cell-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.status-list li,
+.device-list li,
+.fault-list li,
+.event-list li,
+.cell-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  color: #a4b5cd;
+}
+.status-list li:last-child,
+.device-list li:last-child,
+.fault-list li:last-child,
+.event-list li:last-child,
+.cell-list li:last-child {
+  margin-bottom: 0;
+}
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  background: rgba(76, 210, 136, 0.15);
+  color: #7ef392;
+}
+.status-badge.offline {
+  background: rgba(255, 72, 66, 0.12);
+  color: #ff8c7a;
+}
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.topheader {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+.topheader-left {
+  display: grid;
+  gap: 12px;
+}
+.page-title {
+  margin: 0;
+  font-size: 1.65rem;
+}
+.page-subtitle {
+  margin: 0;
+  color: #9ab1d1;
+}
+.top-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.04);
+  color: #d6e0f3;
+  font-size: 0.9rem;
+}
+.indicator::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #4cd288;
+}
+.indicator.offline {
+  color: #ffb2a0;
+}
+.indicator.offline::before {
+  background: #ff6d6d;
+}
+.sim-toggle {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: #eef4ff;
+  padding: 12px 20px;
+  cursor: pointer;
+  min-width: 170px;
+}
+.sim-toggle.active {
+  border-color: rgba(76, 210, 136, 0.35);
+  background: rgba(76, 210, 136, 0.12);
+}
+.top-widgets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.card-widget {
+  background: rgba(20, 28, 41, 0.94);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 24px;
+  padding: 22px;
+}
+.card-widget small {
+  color: #7f99b6;
+}
+.card-widget .widget-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 2rem;
+  font-weight: 700;
+}
+.card-widget .widget-value span {
+  color: #77ceff;
+}
+.widget-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.07);
+  margin-top: 12px;
+  overflow: hidden;
+}
+.widget-progress::after {
+  content: '';
+  display: block;
+  width: var(--progress, 0%);
+  height: 100%;
+  background: linear-gradient(90deg, #7b3fff, #4cd287);
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 20px;
+}
+.grid .panel {
+  background: rgba(16, 24, 38, 0.96);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 26px;
+  padding: 22px;
+}
+.chart-header,
+.panel .subtle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: #92a6cc;
+}
+.chart-header select,
+.panel button {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: inherit;
+  padding: 10px 14px;
+}
+#telemetry-graph {
+  width: 100%;
+  height: 220px;
+  margin-top: 18px;
+  border-radius: 20px;
+  background: radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 32%),
+              rgba(14, 20, 33, 0.85);
+}
+.device-list dt,
+.fault-list dt {
+  font-size: 0.93rem;
+  color: #8ca1c8;
+}
+.fault-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.04);
+}
+.fault-item.ok {
+  border-left: 3px solid #4cd288;
+}
+.fault-item.warn {
+  border-left: 3px solid #f4d84f;
+}
+.fault-item.error {
+  border-left: 3px solid #ff7c74;
+}
+.event-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+}
+.event-list li span {
+  color: #8eadd4;
+}
+.overline {
+  color: #7d96bd;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.76rem;
+  margin-bottom: 10px;
+}
+.metric-count {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #d7e5ff;
+}
+.panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.powerchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.powerchip span {
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #4cd288;
+}
 </style>
-
 </head>
-
 <body>
+<div class="page-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><span>🔋</span></div>
+      <div class="brand-title">
+        <h1>BMS Control Centre</h1>
+        <p>ESP32 Control Hub</p>
+      </div>
+    </div>
 
-<h1>BMS Control Hub</h1>
+    <div class="sidebar-menu">
+      <button class="nav-item active">Dashboard</button>
+      <button class="nav-item">Telemetry</button>
+      <button class="nav-item">Charts</button>
+      <button class="nav-item">Firmware Update</button>
+      <button class="nav-item">Configuration</button>
+      <button class="nav-item">Logs</button>
+      <button class="nav-item">Diagnostics</button>
+      <button class="nav-item">Settings</button>
+      <button class="nav-item">About</button>
+    </div>
 
-<div class="card">
+    <section class="status-card">
+      <h2>System Status</h2>
+      <ul class="status-list">
+        <li><span>ESP32</span><span class="status-badge">Online</span></li>
+        <li><span>STM32 BMS</span><span class="status-badge">Online</span></li>
+        <li><span>Last Update</span><span class="status-badge">12:30:45 PM</span></li>
+      </ul>
+    </section>
+  </aside>
 
-Voltage
+  <main class="main-content">
+    <section class="topheader">
+      <div class="topheader-left">
+        <p class="overline">Dashboard</p>
+        <h2 class="page-title">Live Battery Monitoring</h2>
+        <p class="page-subtitle">Track battery power, health, telemetry, and simulated mode quickly.</p>
+      </div>
 
-<div id="voltage" class="value">--</div>
+      <div class="top-controls">
+        <div class="indicator" id="connection-status">Connected</div>
+        <div class="indicator">Wi-Fi: Home_Network</div>
+        <div class="indicator" id="clock">12:30 PM</div>
+        <button class="sim-toggle" id="sim-toggle">Simulated Mode: <strong id="sim-state">Off</strong></button>
+      </div>
+    </section>
 
-Temperature
+    <section class="top-widgets">
+      <article class="card-widget">
+        <small>Battery Voltage</small>
+        <div class="widget-value"><span id="battery-voltage">--</span></div>
+        <p class="subtle">Range: 10.0 - 15.0 V</p>
+      </article>
+      <article class="card-widget">
+        <small>Battery Current</small>
+        <div class="widget-value"><span id="battery-current">--</span></div>
+        <p class="subtle">Discharging</p>
+      </article>
+      <article class="card-widget">
+        <small>Temperature</small>
+        <div class="widget-value"><span id="battery-temperature">--</span></div>
+        <p class="subtle">Range: 0 - 60 °C</p>
+      </article>
+      <article class="card-widget">
+        <small>State of Charge</small>
+        <div class="widget-value"><span id="battery-soc">--</span></div>
+        <div class="widget-progress" style="--progress: 0%"></div>
+      </article>
+      <article class="card-widget">
+        <small>Health</small>
+        <div class="widget-value"><span id="battery-health">--</span></div>
+        <p class="subtle">Very Good</p>
+        <div class="widget-progress" style="--progress: 95%"></div>
+      </article>
+      <article class="card-widget">
+        <small>Cycle Count</small>
+        <div class="widget-value"><span id="battery-cycles">--</span></div>
+      </article>
+    </section>
 
-<div id="temperature" class="value">--</div>
+    <section class="grid">
+      <div class="panel">
+        <div class="chart-header">
+          <h2>Live Telemetry</h2>
+          <select id="time-range">
+            <option>1 Minute</option>
+            <option>5 Minutes</option>
+            <option>1 Hour</option>
+          </select>
+        </div>
+        <canvas id="telemetry-graph"></canvas>
+      </div>
 
-Current
+      <div class="panel">
+        <h2>Device Information</h2>
+        <ul class="device-list">
+          <li><span>Device Name</span><span>STM32 BMS</span></li>
+          <li><span>Firmware Version</span><span>v1.0.3</span></li>
+          <li><span>Bootloader Version</span><span>v2.1.0</span></li>
+          <li><span>Hardware Version</span><span>REV B</span></li>
+          <li><span>Device ID</span><span>BMS-STM32-001</span></li>
+          <li><span>Uptime</span><span>2d 14h 23m 15s</span></li>
+          <li><span>Last Reset</span><span>Power On</span></li>
+        </ul>
+      </div>
 
-<div id="current" class="value">--</div>
+      <div class="panel">
+        <div class="chart-header">
+          <h2>Fault Status</h2>
+          <span class="status-badge">No Faults</span>
+        </div>
+        <div class="fault-item ok"><span>Over Voltage</span><strong>OK</strong></div>
+        <div class="fault-item ok"><span>Under Voltage</span><strong>OK</strong></div>
+        <div class="fault-item ok"><span>Over Current</span><strong>OK</strong></div>
+        <div class="fault-item ok"><span>Over Temperature</span><strong>OK</strong></div>
+        <div class="fault-item ok"><span>Short Circuit</span><strong>OK</strong></div>
+        <div class="fault-item ok"><span>Cell Imbalance</span><strong>OK</strong></div>
+      </div>
 
-SOC
+      <div class="panel">
+        <h2>Cell Voltages</h2>
+        <ul class="cell-list">
+          <li><span>Cell 1</span><span id="cell-1">-- V</span></li>
+          <li><span>Cell 2</span><span id="cell-2">-- V</span></li>
+          <li><span>Cell 3</span><span id="cell-3">-- V</span></li>
+          <li><span>Cell 4</span><span id="cell-4">-- V</span></li>
+        </ul>
+      </div>
 
-<div id="soc" class="value">--</div>
+      <div class="panel">
+        <h2>SOC Over Time</h2>
+        <canvas id="soc-trend" style="width:100%; height:160px; border-radius:20px; background: rgba(255,255,255,0.03);"></canvas>
+      </div>
 
+      <div class="panel">
+        <h2>Recent Events</h2>
+        <ul class="event-list">
+          <li><span>System started</span><span>May 24, 2025 12:30:10 PM</span></li>
+          <li><span>Telemetry stream connected</span><span>May 24, 2025 12:30:09 PM</span></li>
+          <li><span>Configuration updated</span><span>May 24, 2025 12:29:02 PM</span></li>
+          <li><span>Firmware update completed</span><span>May 24, 2025 10:15:33 AM</span></li>
+          <li><span>Over temperature warning</span><span>May 24, 2025 09:12:11 AM</span></li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
 </div>
-
 <script>
+const state = {
+  simulated: false,
+  connected: true,
+  telemetry: {
+    voltage: 12.53,
+    current: 2.31,
+    temperature: 31.2,
+    soc: 87,
+    health: 95,
+    cycleCount: 128,
+    cellVoltages: [3.132, 3.128, 3.122, 3.127]
+  },
+  history: {
+    voltage: [],
+    current: [],
+    temperature: [],
+    soc: []
+  }
+};
 
-function update()
-{
-fetch("/api/telemetry")
+const elements = {
+  batteryVoltage: document.getElementById('battery-voltage'),
+  batteryCurrent: document.getElementById('battery-current'),
+  batteryTemperature: document.getElementById('battery-temperature'),
+  batterySoc: document.getElementById('battery-soc'),
+  batteryHealth: document.getElementById('battery-health'),
+  batteryCycles: document.getElementById('battery-cycles'),
+  cell1: document.getElementById('cell-1'),
+  cell2: document.getElementById('cell-2'),
+  cell3: document.getElementById('cell-3'),
+  cell4: document.getElementById('cell-4'),
+  simState: document.getElementById('sim-state'),
+  simToggle: document.getElementById('sim-toggle'),
+  connectionStatus: document.getElementById('connection-status'),
+  clock: document.getElementById('clock'),
+  graph: document.getElementById('telemetry-graph'),
+  socTrend: document.getElementById('soc-trend')
+};
 
-.then(r=>r.json())
+function formatNumber(value, digits) {
+  return value.toFixed(digits);
+}
 
-.then(data=>{
+function updateClock() {
+  const now = new Date();
+  elements.clock.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
 
-document.getElementById("voltage").innerHTML=data.voltage+" V";
+function renderTelemetry() {
+  elements.batteryVoltage.textContent = `${formatNumber(state.telemetry.voltage, 2)} V`;
+  elements.batteryCurrent.textContent = `${formatNumber(state.telemetry.current, 2)} A`;
+  elements.batteryTemperature.textContent = `${formatNumber(state.telemetry.temperature, 1)} °C`;
+  elements.batterySoc.textContent = `${Math.round(state.telemetry.soc)}%`;
+  elements.batteryHealth.textContent = `${Math.round(state.telemetry.health)}%`;
+  elements.batteryCycles.textContent = `${state.telemetry.cycleCount}`;
+  elements.cell1.textContent = `${formatNumber(state.telemetry.cellVoltages[0], 3)} V`;
+  elements.cell2.textContent = `${formatNumber(state.telemetry.cellVoltages[1], 3)} V`;
+  elements.cell3.textContent = `${formatNumber(state.telemetry.cellVoltages[2], 3)} V`;
+  elements.cell4.textContent = `${formatNumber(state.telemetry.cellVoltages[3], 3)} V`;
+  state.history.voltage.push(state.telemetry.voltage);
+  state.history.current.push(state.telemetry.current);
+  state.history.temperature.push(state.telemetry.temperature);
+  state.history.soc.push(state.telemetry.soc);
+  if (state.history.voltage.length > 24) state.history.voltage.shift();
+  if (state.history.current.length > 24) state.history.current.shift();
+  if (state.history.temperature.length > 24) state.history.temperature.shift();
+  if (state.history.soc.length > 24) state.history.soc.shift();
+}
 
-document.getElementById("temperature").innerHTML=data.temperature+" C";
+function updateVisualState() {
+  elements.simState.textContent = state.simulated ? 'On' : 'Off';
+  elements.simToggle.classList.toggle('active', state.simulated);
+  elements.connectionStatus.textContent = state.connected ? 'Connected' : 'Offline';
+  elements.connectionStatus.classList.toggle('offline', !state.connected);
+}
 
-document.getElementById("current").innerHTML=data.current+" A";
+function drawChart() {
+  const canvas = elements.graph;
+  if (!canvas || !canvas.getContext) return;
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
+  canvas.width = width * devicePixelRatio;
+  canvas.height = height * devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = height * i / 4;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+  const data = [
+    { values: state.history.voltage, color: '#4cd288' },
+    { values: state.history.current.map(v => v * 3.5), color: '#4d90ff' },
+    { values: state.history.temperature.map(v => (v - 20) * 3), color: '#ff5b7c' }
+  ];
+  data.forEach(series => {
+    if (!series.values.length) return;
+    const max = Math.max(...series.values);
+    const min = Math.min(...series.values);
+    const range = Math.max(1, max - min);
+    ctx.strokeStyle = series.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    series.values.forEach((value, index) => {
+      const x = (index / (series.values.length - 1 || 1)) * width;
+      const normalized = 1 - ((value - min) / range);
+      const y = normalized * (height - 20) + 10;
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+}
 
-document.getElementById("soc").innerHTML=data.soc+" %";
+function drawSocTrend() {
+  const canvas = elements.socTrend;
+  if (!canvas || !canvas.getContext) return;
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
+  canvas.width = width * devicePixelRatio;
+  canvas.height = height * devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  ctx.fillRect(0, 0, width, height);
+  if (!state.history.soc.length) return;
+  const max = 100;
+  const min = 0;
+  ctx.strokeStyle = '#b85bff';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  state.history.soc.forEach((value, index) => {
+    const x = (index / (state.history.soc.length - 1 || 1)) * width;
+    const normalized = 1 - ((value - min) / (max - min));
+    const y = normalized * (height - 20) + 10;
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
 
+function simulateTelemetry() {
+  const time = Date.now() / 1500;
+  state.telemetry.voltage = 12.4 + Math.sin(time) * 0.25 + Math.sin(time / 2) * 0.12;
+  state.telemetry.current = 2.1 + Math.cos(time * 1.2) * 0.18;
+  state.telemetry.temperature = 30 + Math.sin(time / 1.7) * 1.6;
+  state.telemetry.soc = 86 + Math.sin(time / 4) * 2.8;
+  state.telemetry.cellVoltages = [
+    3.12 + Math.sin(time + 0.3) * 0.01,
+    3.13 + Math.sin(time + 0.8) * 0.01,
+    3.11 + Math.sin(time + 1.3) * 0.01,
+    3.12 + Math.sin(time + 1.7) * 0.01
+  ];
+  state.telemetry.health = 95;
+  state.telemetry.cycleCount = 128;
+}
+
+async function refreshTelemetry() {
+  if (state.simulated) {
+    simulateTelemetry();
+    state.connected = true;
+  } else {
+    try {
+      const response = await fetch('/api/telemetry', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error('Telemetry unavailable');
+      }
+      const payload = await response.json();
+      state.telemetry.voltage = typeof payload.voltage_mv === 'number' ? payload.voltage_mv / 1000 : state.telemetry.voltage;
+      state.telemetry.current = typeof payload.current_ma === 'number' ? payload.current_ma / 1000 : state.telemetry.current;
+      state.telemetry.temperature = typeof payload.temperature_centi_c === 'number' ? payload.temperature_centi_c / 100 : state.telemetry.temperature;
+      state.telemetry.soc = typeof payload.soc_tenths_percent === 'number' ? payload.soc_tenths_percent / 10 : state.telemetry.soc;
+      state.telemetry.cellVoltages = [
+        state.telemetry.voltage / 4,
+        state.telemetry.voltage / 4,
+        state.telemetry.voltage / 4,
+        state.telemetry.voltage / 4
+      ];
+      state.connected = true;
+    } catch (error) {
+      state.connected = false;
+      simulateTelemetry();
+    }
+  }
+  renderTelemetry();
+  updateVisualState();
+  drawChart();
+  drawSocTrend();
+}
+
+function refreshAll() {
+  updateClock();
+  refreshTelemetry();
+}
+
+elements.simToggle.addEventListener('click', () => {
+  state.simulated = !state.simulated;
+  updateVisualState();
+  refreshTelemetry();
 });
 
-}
+window.addEventListener('resize', () => {
+  drawChart();
+  drawSocTrend();
+});
 
-setInterval(update,500);
-
-update();
-
+updateVisualState();
+updateClock();
+refreshTelemetry();
+setInterval(() => {
+  updateClock();
+  refreshTelemetry();
+}, 2200);
 </script>
-
 </body>
-
 </html>
 )rawliteral";
 
@@ -165,23 +796,38 @@ update();
 
 esp_err_t DashboardManager::TelemetryHandler(httpd_req_t *request)
 {
-    char json[128];
+    DashboardManager* manager = static_cast<DashboardManager*>(request->user_ctx);
+    char json[192];
 
-    float voltage = 12.45f;
-    float temperature = 28.1f;
-    float current = 1.52f;
-    int soc = 82;
+    uint32_t voltage = 12450;
+    int32_t current = 1520;
+    int16_t temperature = 2810;
+    uint16_t soc = 820;
+    uint32_t faultFlags = 0U;
+
+    if (manager != nullptr && manager->m_telemetryManager != nullptr) {
+        control_hub::communication::TelemetryData data{};
+        if (manager->m_telemetryManager->getLatest(data)) {
+            voltage = data.voltageMillivolts;
+            current = data.currentMilliamps;
+            temperature = data.temperatureCentiDegreesCelsius;
+            soc = data.stateOfChargeTenthsPercent;
+            faultFlags = data.faultFlags;
+        }
+    }
 
     snprintf(json,
              sizeof(json),
-             "{\"voltage\":%.2f,"
-             "\"temperature\":%.2f,"
-             "\"current\":%.2f,"
-             "\"soc\":%d}",
+             "{\"voltage_mv\":%u,"
+             "\"current_ma\":%d,"
+             "\"temperature_centi_c\":%d,"
+             "\"soc_tenths_percent\":%u,"
+             "\"fault_flags\":%u}",
              voltage,
-             temperature,
              current,
-             soc);
+             temperature,
+             soc,
+             faultFlags);
 
     httpd_resp_set_type(request, "application/json");
 
