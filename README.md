@@ -4,7 +4,7 @@
 
 ## Overview
 
-BMS Control Centre is an ESP32-C6 based embedded gateway designed to communicate with a custom STM32 Battery Management System over SPI.
+BMS Control Centre is an ESP32-S3 based embedded gateway designed to communicate with a custom STM32 Battery Management System over SPI.
 
 The Control Centre serves as the central interface between the embedded BMS firmware and the user by providing real-time monitoring, firmware updates, diagnostics, and a web-based dashboard.
 
