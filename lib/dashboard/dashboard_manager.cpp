@@ -5,6 +5,7 @@
 #include "esp_log.h"
 
 #include <stdio.h>
+#include <inttypes.h>
 
 namespace control_hub::dashboard
 {
@@ -818,11 +819,11 @@ esp_err_t DashboardManager::TelemetryHandler(httpd_req_t *request)
 
     snprintf(json,
              sizeof(json),
-             "{\"voltage_mv\":%u,"
-             "\"current_ma\":%d,"
-             "\"temperature_centi_c\":%d,"
-             "\"soc_tenths_percent\":%u,"
-             "\"fault_flags\":%u}",
+             "{\"voltage_mv\":%" PRIu32 ","
+             "\"current_ma\":%" PRId32 ","
+             "\"temperature_centi_c\":%" PRId16 ","
+             "\"soc_tenths_percent\":%" PRIu16 ","
+             "\"fault_flags\":%" PRIu32 "}",
              voltage,
              current,
              temperature,
