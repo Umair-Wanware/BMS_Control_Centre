@@ -672,17 +672,6 @@
     }
   }, 500);
 
-</script> 
-</body>
-window.onSimUpdate = function() {
-  let v = document.getElementById('val-voltage');
-  let i = document.getElementById('val-current');
-  let t = document.getElementById('val-temp');
-
-  if (v) v.innerText = (12.65 + Math.random() * 0.20).toFixed(2) + ' V';
-  if (i) i.innerText = (1.95 + Math.random() * 0.15).toFixed(2) + ' A';
-  if (t) t.innerText = (28.5 + Math.random() * 0.6).toFixed(1) + ' °C';
-};
 </script>
 </body>
 </html>
