@@ -1,55 +1,308 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings - BMS Control Centre</title>
-</head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - BMS Control Centre</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
 
+    html, body {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden; /* Scrollbar off */
+      background-color: #0b111e;
+      color: #ffffff;
+    }
+
+    body {
+      display: flex;
+    }
+
+    /* Sidebar Area */
+    .sidebar {
+      width: 240px;
+      height: 100vh;
+      background-color: #0f172a;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-right: 1px solid #1e293b;
+    }
+
+    .brand-box {
+      background-color: #ffffff;
+      color: #0f172a;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    .brand-box h3 { font-size: 14px; font-weight: 700; }
+    .brand-box p { font-size: 11px; color: #64748b; }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: 0.2s;
+    }
+
+    .nav-btn.active {
+      background-color: #0e3a40;
+      color: #38bdf8;
+    }
+
+    .nav-btn:hover:not(.active) {
+      background-color: #1e293b;
+      color: #ffffff;
+    }
+
+    /* Main Workspace */
+    .main-content {
+      flex: 1;
+      height: 100vh;
+      padding: 20px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-title span {
+      font-size: 11px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .page-title h2 {
+      font-size: 22px;
+      margin-top: 2px;
+    }
+
+    .tag {
+      background-color: #1e293b;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    /* Settings Grid */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .card {
+      background-color: #111a2e;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #38bdf8;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 8px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .form-group input, .form-group select {
+      background-color: #0b111e;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 10px;
+      color: #ffffff;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      border-color: #38bdf8;
+    }
+
+    .btn-save {
+      background-color: #38bdf8;
+      color: #0b111e;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: auto;
+      transition: 0.2s;
+    }
+
+    .btn-save:hover {
+      background-color: #7dd3fc;
+    }
+
+    .btn-danger {
+      background-color: #ef4444;
+      color: #ffffff;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+      transition: 0.2s;
+    }
+
+    .btn-danger:hover {
+      background-color: #f87171;
+    }
+  </style>
+</head>
 <body>
 
-    <h1>BMS Control Centre</h1>
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="brand-box">
+      <h3>BMS Control Centre</h3>
+      <p>ESP32 Control Hub</p>
+    </div>
 
-    <h2>Settings</h2>
+    <a href="index.html" class="nav-btn">Dashboard</a>
+    <a href="telemetry.html" class="nav-btn">Telemetry</a>
+    <a href="charts.html" class="nav-btn">Charts</a>
+    <a href="firmware.html" class="nav-btn">Firmware Update</a>
+    <a href="config.html" class="nav-btn">Configuration</a>
+    <a href="logs.html" class="nav-btn">Logs</a>
+    <a href="diagnostics.html" class="nav-btn">Diagnostics</a>
+    <a href="settings.html" class="nav-btn active">Settings</a>
+  </div>
 
-    <h3>Device Settings</h3>
+  <!-- Main Content Area -->
+  <div class="main-content">
+    
+    <!-- Top Header Bar -->
+    <div class="top-bar">
+      <div class="page-title">
+        <span>PREFERENCES & NETWORK</span>
+        <h2>System Settings</h2>
+      </div>
 
-    <label>Device Name</label><br>
-    <input type="text" value="STM32 BMS">
+      <div class="top-tags">
+        <span id="status-tag" class="tag">🔴 Offline</span>
+        <span class="tag">Network Setup</span>
+      </div>
+    </div>
 
-    <br><br>
+    <!-- Settings Grid -->
+    <div class="settings-grid">
+      
+      <!-- Card 1: Network & WiFi Settings -->
+      <div class="card">
+        <div class="card-title">Wi-Fi & Network Settings</div>
+        
+        <div class="form-group">
+          <label>Wi-Fi SSID</label>
+          <input type="text" value="BMS_Home_Network">
+        </div>
 
-    <label>Wi-Fi Network</label><br>
-    <input type="text" value="Home_Network">
+        <div class="form-group">
+          <label>Wi-Fi Password</label>
+          <input type="password" value="••••••••••••">
+        </div>
 
-    <br><br>
+        <div class="form-group">
+          <label>IP Assignment Mode</label>
+          <select>
+            <option value="dhcp">DHCP (Automatic)</option>
+            <option value="static">Static IP</option>
+          </select>
+        </div>
 
-    <label>Refresh Interval</label><br>
-    <select>
-        <option>1 Second</option>
-        <option selected>2 Seconds</option>
-        <option>5 Seconds</option>
-        <option>10 Seconds</option>
-    </select>
+        <button class="btn-save">Save Network Settings</button>
+      </div>
 
-    <br><br>
+      <!-- Card 2: System & Maintenance -->
+      <div class="card">
+        <div class="card-title">System & Management</div>
 
-    <label>Temperature Unit</label><br>
-    <select>
-        <option selected>Celsius (°C)</option>
-        <option>Fahrenheit (°F)</option>
-    </select>
+        <div class="form-group">
+          <label>Telemetry Refresh Rate</label>
+          <select>
+            <option value="1">1 Second (Realtime)</option>
+            <option value="2" selected>2 Seconds</option>
+            <option value="5">5 Seconds</option>
+          </select>
+        </div>
 
-    <br><br>
+        <div class="form-group">
+          <label>Device Name</label>
+          <input type="text" value="ESP32_BMS_Controller">
+        </div>
 
-    <label>
-        <input type="checkbox">
-        Simulation Mode
-    </label>
+        <div class="form-group" style="margin-top: 10px;">
+          <label style="color: #f87171; font-weight: 600;">Danger Zone</label>
+          <button class="btn-danger">Restart ESP32 Device</button>
+        </div>
 
-    <br><br>
+        <button class="btn-save">Save System Settings</button>
+      </div>
 
-    <button>Save Settings</button>
+    </div>
+
+  </div>
+
+  <!-- Status Sync Script -->
+  <script>
+    function updateSettingsStatus() {
+      const tag = document.getElementById('status-tag');
+      if (!tag) return;
+      let savedStatus = localStorage.getItem('systemStatus');
+      if (savedStatus === 'online') {
+        tag.innerHTML = '🟢 Online';
+        tag.style.color = '#4ade80';
+        tag.style.backgroundColor = '#143823';
+      } else {
+        tag.innerHTML = '🔴 Offline';
+        tag.style.color = '#f87171';
+        tag.style.backgroundColor = '#1e293b';
+      }
+    }
+    window.onload = updateSettingsStatus;
+    window.addEventListener('storage', updateSettingsStatus);
+  </script>
 
 </body>
 </html>
