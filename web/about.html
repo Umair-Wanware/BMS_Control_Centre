@@ -1,45 +1,299 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About - BMS Control Centre</title>
-</head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About - BMS Control Centre</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
 
+    html, body {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden; /* Scrollbar off */
+      background-color: #0b111e;
+      color: #ffffff;
+    }
+
+    body {
+      display: flex;
+    }
+
+    /* Sidebar Area */
+    .sidebar {
+      width: 240px;
+      height: 100vh;
+      background-color: #0f172a;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-right: 1px solid #1e293b;
+    }
+
+    .brand-box {
+      background-color: #ffffff;
+      color: #0f172a;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    .brand-box h3 { font-size: 14px; font-weight: 700; }
+    .brand-box p { font-size: 11px; color: #64748b; }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: 0.2s;
+    }
+
+    .nav-btn.active {
+      background-color: #0e3a40;
+      color: #38bdf8;
+    }
+
+    .nav-btn:hover:not(.active) {
+      background-color: #1e293b;
+      color: #ffffff;
+    }
+
+    /* Main Workspace */
+    .main-content {
+      flex: 1;
+      height: 100vh;
+      padding: 20px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-title span {
+      font-size: 11px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .page-title h2 {
+      font-size: 22px;
+      margin-top: 2px;
+    }
+
+    .tag {
+      background-color: #1e293b;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    /* About Content Grid */
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .card {
+      background-color: #111a2e;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #38bdf8;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 8px;
+    }
+
+    .info-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .info-label {
+      color: #94a3b8;
+    }
+
+    .info-val {
+      color: #f8fafc;
+      font-weight: 600;
+    }
+
+    .highlight-val {
+      color: #38bdf8;
+    }
+
+    .app-description {
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+
+    .feature-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .feature-chip {
+      background-color: #0b111e;
+      border: 1px solid #1e293b;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #38bdf8;
+    }
+  </style>
+</head>
 <body>
 
-    <h1>BMS Control Centre</h1>
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="brand-box">
+      <h3>BMS Control Centre</h3>
+      <p>ESP32 Control Hub</p>
+    </div>
 
-    <h2>About This Project</h2>
+    <a href="index.html" class="nav-btn">Dashboard</a>
+    <a href="telemetry.html" class="nav-btn">Telemetry</a>
+    <a href="charts.html" class="nav-btn">Charts</a>
+    <a href="firmware.html" class="nav-btn">Firmware Update</a>
+    <a href="config.html" class="nav-btn">Configuration</a>
+    <a href="logs.html" class="nav-btn">Logs</a>
+    <a href="diagnostics.html" class="nav-btn">Diagnostics</a>
+    <a href="settings.html" class="nav-btn">Settings</a>
+    <a href="about.html" class="nav-btn active">About</a>
+  </div>
 
-    <p>
-        BMS Control Centre is a battery monitoring and management
-        interface designed to monitor battery performance and system status.
-    </p>
+  <!-- Main Content Area -->
+  <div class="main-content">
+    
+    <!-- Top Header Bar -->
+    <div class="top-bar">
+      <div class="page-title">
+        <span>SYSTEM INFORMATION</span>
+        <h2>About BMS Control Centre</h2>
+      </div>
 
-    <h3>System Information</h3>
+      <div class="top-tags">
+        <span id="status-tag" class="tag">🔴 Offline</span>
+        <span class="tag">v1.2.4</span>
+      </div>
+    </div>
 
-    <p>Project: Battery Management System</p>
-    <p>Controller: ESP32</p>
-    <p>BMS: STM32</p>
-    <p>Firmware Version: v1.0.3</p>
-    <p>Hardware Version: REV B</p>
+    <!-- About Grid -->
+    <div class="about-grid">
+      
+      <!-- Card 1: System Specs & Build Info -->
+      <div class="card">
+        <div class="card-title">System & Microcontroller Info</div>
+        
+        <div class="info-list">
+          <div class="info-row">
+            <span class="info-label">Platform</span>
+            <span class="info-val highlight-val">ESP32 Dual-Core (Xtensa 32-bit LX6)</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Firmware Version</span>
+            <span class="info-val">v1.2.4-stable</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Web Interface Version</span>
+            <span class="info-val">v2.0.0 (Dark Dashboard UI)</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Free Heap Memory</span>
+            <span class="info-val">184 KB</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">CPU Frequency</span>
+            <span class="info-val">240 MHz</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Flash Memory Size</span>
+            <span class="info-val">4 MB</span>
+          </div>
+        </div>
+      </div>
 
-    <h3>Features</h3>
+      <!-- Card 2: Overview & Key Features -->
+      <div class="card">
+        <div class="card-title">Project Overview & Capabilities</div>
 
-    <ul>
-        <li>Live Battery Monitoring</li>
-        <li>Battery Telemetry</li>
-        <li>Battery Charts</li>
-        <li>Firmware Update</li>
-        <li>BMS Configuration</li>
-        <li>System Logs</li>
-        <li>Diagnostics</li>
-    </ul>
+        <p class="app-description">
+          BMS Control Centre is a real-time monitoring and control dashboard designed for Lithium Battery Management Systems (BMS) powered by ESP32 microcontrollers.
+        </p>
 
-    <h3>Version</h3>
+        <div class="feature-tags">
+          <span class="feature-chip">⚡ Realtime Telemetry</span>
+          <span class="feature-chip">📊 Live Cell Voltage Charts</span>
+          <span class="feature-chip">🛡️ Thermal Safety Protection</span>
+          <span class="feature-chip">🔄 Active / Passive Balancing</span>
+          <span class="feature-chip">🌐 Wi-Fi & WebSockets</span>
+          <span class="feature-chip">📝 System Logging</span>
+        </div>
+      </div>
 
-    <p>Version 1.0.0</p>
+    </div>
+
+  </div>
+
+  <!-- Status Sync Script -->
+  <script>
+    function updateAboutStatus() {
+      const tag = document.getElementById('status-tag');
+      if (!tag) return;
+      let savedStatus = localStorage.getItem('systemStatus');
+      if (savedStatus === 'online') {
+        tag.innerHTML = '🟢 Online';
+        tag.style.color = '#4ade80';
+        tag.style.backgroundColor = '#143823';
+      } else {
+        tag.innerHTML = '🔴 Offline';
+        tag.style.color = '#f87171';
+        tag.style.backgroundColor = '#1e293b';
+      }
+    }
+    window.onload = updateAboutStatus;
+    window.addEventListener('storage', updateAboutStatus);
+  </script>
 
 </body>
 </html>
