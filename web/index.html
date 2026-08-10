@@ -131,6 +131,17 @@
       color: #cbd5e1;
     }
 
+    /* Clickable Toggle Button Style */
+    .toggle-btn {
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+    .toggle-btn:hover {
+      opacity: 0.85;
+      transform: scale(0.98);
+    }
+
     /* Common Card Styling */
     .card {
       background-color: #0c172c;
@@ -285,7 +296,11 @@
         <span class="top-tag">🟢 Connected</span>
         <span class="top-tag">📶 Wi-Fi: Home_Network</span>
         <span class="top-tag">🕒 10:08 pm</span>
-        <span class="top-tag" style="background-color: #083c5a; color: #38bdf8;">Simulated Mode: On</span>
+        
+        <!-- Interactive Simulated Mode Toggle Button -->
+        <span id="sim-mode-btn" class="top-tag toggle-btn" onclick="toggleSimulatedMode()">
+          Simulated Mode: On
+        </span>
       </div>
     </div>
 
@@ -449,6 +464,43 @@
     </div>
 
   </div>
+
+  <!-- Simulated Mode Toggle Script -->
+  <script>
+    function updateSimModeUI(isSimOn) {
+      const btn = document.getElementById('sim-mode-btn');
+      if (!btn) return;
+
+      if (isSimOn) {
+        btn.innerText = 'Simulated Mode: On';
+        btn.style.backgroundColor = '#083c5a';
+        btn.style.color = '#38bdf8';
+        btn.style.borderColor = '#162646';
+      } else {
+        btn.innerText = 'Simulated Mode: Off';
+        btn.style.backgroundColor = '#1e293b';
+        btn.style.color = '#94a3b8';
+        btn.style.borderColor = '#334155';
+      }
+    }
+
+    function toggleSimulatedMode() {
+      let isSimOn = localStorage.getItem('simulatedMode') === 'true';
+      isSimOn = !isSimOn; // Toggle state
+      localStorage.setItem('simulatedMode', isSimOn);
+      updateSimModeUI(isSimOn);
+    }
+
+    // On Load Check State
+    window.addEventListener('DOMContentLoaded', () => {
+      let savedSim = localStorage.getItem('simulatedMode');
+      if (savedSim === null) {
+        savedSim = 'true';
+        localStorage.setItem('simulatedMode', 'true');
+      }
+      updateSimModeUI(savedSim === 'true');
+    });
+  </script>
 
 </body>
 </html>
