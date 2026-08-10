@@ -88,5 +88,75 @@
     window.onload = updateStatus;
     window.addEventListener('storage', updateStatus);
   </script>
+  <!-- Baki Pages (e.g. telemetry.html / charts.html / logs.html) Script -->
+<script>
+  let pageSimInterval = null;
+
+  // Har page ke apne custom updates yahan likhein (e.g. Logs update, Charts update)
+  function updatePageData() {
+    // Example: Agar ye Telemetry / Chart page hai toh graphs re-render honge
+    console.log("Simulated Data Updating...");
+
+    // Aapka page-specific update code yahan aayega
+    if (typeof drawGraphs === 'function') drawGraphs();
+  }
+
+  function startSimulation() {
+    if (!pageSimInterval) {
+      pageSimInterval = setInterval(updatePageData, 500); // 500ms par update
+    }
+  }
+
+  function stopSimulation() {
+    if (pageSimInterval) {
+      clearInterval(pageSimInterval);
+      pageSimInterval = null; // Freeze data
+    }
+  }
+
+  // UI aur Simulation Sync Control
+  function syncSimMode() {
+    const isSimOn = localStorage.getItem('simulatedMode') === 'true';
+    const btn = document.getElementById('sim-mode-btn');
+
+    if (btn) {
+      if (isSimOn) {
+        btn.innerText = 'Simulated Mode: On';
+        btn.style.backgroundColor = '#083c5a';
+        btn.style.color = '#38bdf8';
+        btn.style.borderColor = '#162646';
+      } else {
+        btn.innerText = 'Simulated Mode: Off';
+        btn.style.backgroundColor = '#1e293b';
+        btn.style.color = '#94a3b8';
+        btn.style.borderColor = '#334155';
+      }
+    }
+
+    // On hone par run karo, Off hone par freeze
+    if (isSimOn) {
+      startSimulation();
+    } else {
+      stopSimulation();
+    }
+  }
+
+  // Toggle Function (Button click karne par)
+  function toggleSimulatedMode() {
+    let isSimOn = localStorage.getItem('simulatedMode') === 'true';
+    localStorage.setItem('simulatedMode', (!isSimOn).toString());
+    syncSimMode();
+  }
+
+  // 1. Page Load hote hi status check karo
+  window.addEventListener('DOMContentLoaded', syncSimMode);
+
+  // 2. Dusre Tab ya Window me change hone par automatic sync
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'simulatedMode') {
+      syncSimMode();
+    }
+  });
+</script>
 </body>
 </html>
