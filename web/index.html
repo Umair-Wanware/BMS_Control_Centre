@@ -1,508 +1,454 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BMS Control Centre</title>
   <style>
-    :root {
-      color-scheme: dark;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #e9eef7;
-      background: #0b1119;
-    }
-    * { box-sizing: border-box; }
-    body {
+    * {
+      box-sizing: border-box;
       margin: 0;
-      min-height: 100vh;
-      background: radial-gradient(circle at 10% 10%, rgba(76, 210, 120, 0.12), transparent 24%),
-                  radial-gradient(circle at 90% 10%, rgba(118, 123, 255, 0.14), transparent 28%),
-                  linear-gradient(180deg, #0a0f17 0%, #09101a 100%);
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
-    .page-shell {
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: 20px;
-      padding: 24px;
-      max-width: 1680px;
-      margin: 0 auto;
+
+    html, body {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden; /* Prevent scrolling */
+      background-color: #070d19;
+      color: #ffffff;
     }
-    .brand,
-    .status-card,
-    .panel,
-    .sidebar-menu {
-      background: rgba(18, 25, 34, 0.92);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 24px;
-      padding: 22px;
+
+    body {
+      display: flex;
+      padding: 10px;
+      gap: 10px;
     }
-    .brand { display: flex; gap: 16px; align-items: center; }
-    .brand-icon {
-      width: 48px;
-      height: 48px;
+
+    /* Left Sidebar */
+    .sidebar {
+      width: 210px;
+      height: calc(100vh - 20px);
+      background-color: #0c172c;
+      padding: 12px;
       border-radius: 14px;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, #4cd288, #2cacff);
-      box-shadow: 0 14px 30px rgba(76, 210, 136, 0.18);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 1px solid #162646;
+      flex-shrink: 0;
     }
-    .brand-icon span { font-size: 1.5rem; }
-    .brand-title h1 { margin: 0; font-size: 1.05rem; letter-spacing: -0.02em; }
-    .brand-title p { margin: 4px 0 0; color: #94a7c4; font-size: 0.9rem; }
-    .sidebar-menu { display: grid; gap: 10px; }
-    .nav-item {
-      appearance: none;
-      border: none;
-      border-radius: 18px;
-      background: rgba(255,255,255,0.03);
-      color: #dbe5f6;
-      padding: 14px 18px;
-      text-align: left;
-      cursor: pointer;
-      transition: background 0.2s ease, transform 0.2s ease;
+
+    .brand-box {
+      background-color: #ffffff;
+      color: #0c172c;
+      padding: 8px 12px;
+      border-radius: 10px;
+      margin-bottom: 6px;
     }
-    .nav-item:hover,
-    .nav-item.active { background: rgba(76, 210, 136, 0.14); transform: translateX(2px); }
-    .status-card h2,
-    .panel h2,
-    .panel h3 { margin: 0 0 14px; color: #f8fbff; }
-    .status-list,
-    .device-list,
-    .fault-list,
-    .event-list,
-    .cell-list { list-style: none; padding: 0; margin: 0; }
-    .status-list li,
-    .device-list li,
-    .fault-list li,
-    .event-list li,
-    .cell-list li {
+
+    .brand-box h3 { font-size: 13px; font-weight: 800; }
+    .brand-box p { font-size: 10px; color: #64748b; }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      padding: 7px 12px;
+      border-radius: 8px;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 500;
+      transition: 0.2s;
+    }
+
+    .nav-btn.active {
+      background-color: #083c5a;
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .nav-btn:hover:not(.active) {
+      background-color: #162646;
+      color: #ffffff;
+    }
+
+    /* System Status Widget inside Sidebar bottom */
+    .system-status-box {
+      margin-top: auto;
+      background-color: #091222;
+      border: 1px solid #162646;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .status-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
-      color: #a4b5cd;
+      font-size: 11px;
     }
-    .status-badge { padding: 6px 14px; border-radius: 999px; font-size: 0.84rem; background: rgba(76, 210, 136, 0.15); color: #7ef392; }
-    .topheader { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
-    .page-title { margin: 0; font-size: 1.65rem; }
-    .page-subtitle { margin: 0; color: #9ab1d1; }
-    .top-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-    .indicator { display: inline-flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 18px; background: rgba(255,255,255,0.04); color: #d6e0f3; font-size: 0.9rem; }
-    .indicator::before { content: ''; width: 10px; height: 10px; border-radius: 999px; background: #4cd288; }
-    .indicator.offline { color: #ffb2a0; }
-    .indicator.offline::before { background: #ff6d6d; }
-    .sim-toggle {
-      appearance: none;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 999px;
-      background: rgba(255,255,255,0.04);
-      color: #eef4ff;
-      padding: 12px 20px;
-      cursor: pointer;
-      min-width: 170px;
+
+    .pill {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
     }
-    .sim-toggle.active { border-color: rgba(76, 210, 136, 0.35); background: rgba(76, 210, 136, 0.12); }
-    .top-widgets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
-    .card-widget { background: rgba(20, 28, 41, 0.94); border: 1px solid rgba(255,255,255,0.06); border-radius: 24px; padding: 22px; }
-    .card-widget small { color: #7f99b6; }
-    .card-widget .widget-value { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 2rem; font-weight: 700; }
-    .widget-progress { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.07); margin-top: 12px; overflow: hidden; }
-    .widget-progress::after { content: ''; display: block; width: var(--progress, 0%); height: 100%; background: linear-gradient(90deg, #7b3fff, #4cd287); }
-    .grid { display: grid; grid-template-columns: 1.8fr 1fr; gap: 20px; }
-    .grid .panel { background: rgba(16, 24, 38, 0.96); border: 1px solid rgba(255,255,255,0.06); border-radius: 26px; padding: 22px; }
-    .chart-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #92a6cc; }
-    .chart-header select,
-    .panel button { appearance: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; background: rgba(255,255,255,0.04); color: inherit; padding: 10px 14px; }
-    #telemetry-graph { width: 100%; height: 220px; margin-top: 18px; border-radius: 20px; background: radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 32%), rgba(14, 20, 33, 0.85); }
-    .fault-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; background: rgba(255,255,255,0.04); }
-    .fault-item.ok { border-left: 3px solid #4cd288; }
-    .event-list li { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: 18px; background: rgba(255,255,255,0.03); }
-    .event-list li span { color: #8eadd4; }
-    .overline { color: #7d96bd; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.76rem; margin-bottom: 10px; }
-    .panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .pill-green { background-color: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+
+    /* Main Workspace */
+    .main-workspace {
+      flex: 1;
+      height: calc(100vh - 20px);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 38px;
+    }
+
+    .page-title h2 { font-size: 18px; color: #ffffff; }
+    .page-title span { font-size: 10px; color: #38bdf8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+
+    .top-tags { display: flex; gap: 6px; align-items: center; }
+    .top-tag {
+      background-color: #0c172c;
+      border: 1px solid #162646;
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 11px;
+      color: #cbd5e1;
+    }
+
+    /* Common Card Styling */
+    .card {
+      background-color: #0c172c;
+      border: 1px solid #162646;
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 2px 0;
+    }
+
+    .card-subtext {
+      font-size: 10px;
+      color: #64748b;
+    }
+
+    .progress-bg {
+      width: 100%;
+      height: 4px;
+      background-color: #162646;
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background-color: #38bdf8;
+    }
+
+    /* 6 Metrics Grid */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      height: 80px;
+    }
+
+    /* Main Dashboard Grid (3 Columns) */
+    .dashboard-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 2.1fr 1.2fr 1.2fr;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      height: 100%;
+    }
+
+    /* List Item Row Styles */
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      background-color: #081020;
+      border-radius: 6px;
+      font-size: 11px;
+      border: 1px solid #13223f;
+    }
+
+    .ok-badge {
+      background-color: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* SVG Chart Containers */
+    .chart-box {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    svg { width: 100%; height: 100%; }
   </style>
 </head>
 <body>
-  <div class="page-shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-icon"><span>🔋</span></div>
-        <div class="brand-title">
-          <h1>BMS Control Centre</h1>
-          <p>ESP32 Control Hub</p>
-        </div>
+
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="brand-box">
+      <h3>BMS Control Centre</h3>
+      <p>ESP32 Control Hub</p>
+    </div>
+
+    <a href="index.html" class="nav-btn active">Dashboard</a>
+    <a href="telemetry.html" class="nav-btn">Telemetry</a>
+    <a href="charts.html" class="nav-btn">Charts</a>
+    <a href="firmware.html" class="nav-btn">Firmware Update</a>
+    <a href="config.html" class="nav-btn">Configuration</a>
+    <a href="logs.html" class="nav-btn">Logs</a>
+    <a href="diagnostics.html" class="nav-btn">Diagnostics</a>
+    <a href="settings.html" class="nav-btn">Settings</a>
+    <a href="about.html" class="nav-btn">About</a>
+
+    <!-- System Status Card -->
+    <div class="system-status-box">
+      <div class="card-title" style="margin-bottom: 4px;">System Status</div>
+      <div class="status-row">
+        <span>ESP32</span>
+        <span class="pill pill-green">Online</span>
       </div>
-      <div class="sidebar-menu">
-    <a href="index.html" class="nav-item active">Dashboard</a>
-<a href="telemetry.html" class="nav-item">Telemetry</a>
-<a href="charts.html" class="nav-item">Charts</a>
-<a href="firmware.html" class="nav-item">Firmware Update</a>
-<a href="configuration.html" class="nav-item">Configuration</a>
-<a href="logs.html" class="nav-item">Logs</a>
-<a href="diagnostics.html" class="nav-item">Diagnostics</a>
-<a href="settings.html" class="nav-item">Settings</a>
-<a href="about.html" class="nav-item">About</a>
+      <div class="status-row">
+        <span>STM32 BMS</span>
+        <span class="pill pill-green">Online</span>
       </div>
-      <section class="status-card">
-        <h2>System Status</h2>
-        <ul class="status-list">
-          <li><span>ESP32</span><span class="status-badge">Online</span></li>
-          <li><span>STM32 BMS</span><span class="status-badge">Online</span></li>
-          <li><span>Last Update</span><span class="status-badge">12:30:45 PM</span></li>
-        </ul>
-      </section>
-    </aside>
-    <main class="main-content">
-      <section class="topheader">
-        <div>
-          <p class="overline">Dashboard</p>
-          <h2 class="page-title">Live Battery Monitoring</h2>
-          <p class="page-subtitle">Track battery power, health, telemetry, and simulated mode quickly.</p>
-        </div>
-        <div class="top-controls">
-          <div class="indicator" id="connection-status">Connected</div>
-          <div class="indicator">Wi-Fi: Home_Network</div>
-          <div class="indicator" id="clock">12:30 PM</div>
-          <button class="sim-toggle" id="sim-toggle">Simulated Mode: <strong id="sim-state">Off</strong></button>
-        </div>
-      </section>
-      <section class="top-widgets">
-        <article class="card-widget">
-          <small>Battery Voltage</small>
-          <div class="widget-value"><span id="battery-voltage">--</span></div>
-          <p class="subtle">Range: 10.0 - 15.0 V</p>
-        </article>
-        <article class="card-widget">
-          <small>Battery Current</small>
-          <div class="widget-value"><span id="battery-current">--</span></div>
-          <p class="subtle">Discharging</p>
-        </article>
-        <article class="card-widget">
-          <small>Temperature</small>
-          <div class="widget-value"><span id="battery-temperature">--</span></div>
-          <p class="subtle">Range: 0 - 60 °C</p>
-        </article>
-        <article class="card-widget">
-          <small>State of Charge</small>
-          <div class="widget-value"><span id="battery-soc">--</span></div>
-          <div class="widget-progress" style="--progress: 0%"></div>
-        </article>
-        <article class="card-widget">
-          <small>Health</small>
-          <div class="widget-value"><span id="battery-health">--</span></div>
-          <p class="subtle">Very Good</p>
-          <div class="widget-progress" style="--progress: 95%"></div>
-        </article>
-        <article class="card-widget">
-          <small>Cycle Count</small>
-          <div class="widget-value"><span id="battery-cycles">--</span></div>
-        </article>
-      </section>
-      <section class="grid">
-        <div class="panel">
-          <div class="chart-header">
-            <h2>Live Telemetry</h2>
-            <select id="time-range">
-              <option>1 Minute</option>
-              <option>5 Minutes</option>
-              <option>1 Hour</option>
-            </select>
-          </div>
-          <canvas id="telemetry-graph"></canvas>
-        </div>
-        <div class="panel">
-          <h2>Device Information</h2>
-          <ul class="device-list">
-            <li><span>Device Name</span><span>STM32 BMS</span></li>
-            <li><span>Firmware Version</span><span>v1.0.3</span></li>
-            <li><span>Bootloader Version</span><span>v2.1.0</span></li>
-            <li><span>Hardware Version</span><span>REV B</span></li>
-            <li><span>Device ID</span><span>BMS-STM32-001</span></li>
-            <li><span>Uptime</span><span>2d 14h 23m 15s</span></li>
-            <li><span>Last Reset</span><span>Power On</span></li>
-          </ul>
-        </div>
-        <div class="panel">
-          <div class="chart-header">
-            <h2>Fault Status</h2>
-            <span class="status-badge">No Faults</span>
-          </div>
-          <div class="fault-item ok"><span>Over Voltage</span><strong>OK</strong></div>
-          <div class="fault-item ok"><span>Under Voltage</span><strong>OK</strong></div>
-          <div class="fault-item ok"><span>Over Current</span><strong>OK</strong></div>
-          <div class="fault-item ok"><span>Over Temperature</span><strong>OK</strong></div>
-          <div class="fault-item ok"><span>Short Circuit</span><strong>OK</strong></div>
-          <div class="fault-item ok"><span>Cell Imbalance</span><strong>OK</strong></div>
-        </div>
-        <div class="panel">
-          <h2>Cell Voltages</h2>
-          <ul class="cell-list">
-            <li><span>Cell 1</span><span id="cell-1">-- V</span></li>
-            <li><span>Cell 2</span><span id="cell-2">-- V</span></li>
-            <li><span>Cell 3</span><span id="cell-3">-- V</span></li>
-            <li><span>Cell 4</span><span id="cell-4">-- V</span></li>
-          </ul>
-        </div>
-        <div class="panel">
-          <h2>SOC Over Time</h2>
-          <canvas id="soc-trend" style="width:100%; height:160px; border-radius:20px; background: rgba(255,255,255,0.03);"></canvas>
-        </div>
-        <div class="panel">
-          <h2>Recent Events</h2>
-          <ul class="event-list">
-            <li><span>System started</span><span>May 24, 2025 12:30:10 PM</span></li>
-            <li><span>Telemetry stream connected</span><span>May 24, 2025 12:30:09 PM</span></li>
-            <li><span>Configuration updated</span><span>May 24, 2025 12:29:02 PM</span></li>
-            <li><span>Firmware update completed</span><span>May 24, 2025 10:15:33 AM</span></li>
-            <li><span>Over temperature warning</span><span>May 24, 2025 09:12:11 AM</span></li>
-          </ul>
-        </div>
-      </section>
-    </main>
+      <div class="status-row" style="color: #64748b; margin-top: 2px;">
+        <span>Last Update</span>
+        <span>12:30:45 PM</span>
+      </div>
+    </div>
   </div>
-  <script>
-    const state = {
-      simulated: false,
-      connected: true,
-      telemetry: {
-        voltage: 12.53,
-        current: 2.31,
-        temperature: 31.2,
-        soc: 87,
-        health: 95,
-        cycleCount: 128,
-        cellVoltages: [3.132, 3.128, 3.122, 3.127]
-      },
-      history: {
-        voltage: [],
-        current: [],
-        temperature: [],
-        soc: []
-      }
-    };
 
-    const elements = {
-      batteryVoltage: document.getElementById('battery-voltage'),
-      batteryCurrent: document.getElementById('battery-current'),
-      batteryTemperature: document.getElementById('battery-temperature'),
-      batterySoc: document.getElementById('battery-soc'),
-      batteryHealth: document.getElementById('battery-health'),
-      batteryCycles: document.getElementById('battery-cycles'),
-      cell1: document.getElementById('cell-1'),
-      cell2: document.getElementById('cell-2'),
-      cell3: document.getElementById('cell-3'),
-      cell4: document.getElementById('cell-4'),
-      simState: document.getElementById('sim-state'),
-      simToggle: document.getElementById('sim-toggle'),
-      connectionStatus: document.getElementById('connection-status'),
-      clock: document.getElementById('clock'),
-      graph: document.getElementById('telemetry-graph'),
-      socTrend: document.getElementById('soc-trend')
-    };
+  <!-- Main Workspace -->
+  <div class="main-workspace">
 
-    function formatNumber(value, digits) {
-      return value.toFixed(digits);
-    }
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <div class="page-title">
+        <span>DASHBOARD</span>
+        <h2>Live Battery Monitoring</h2>
+      </div>
 
-    function updateClock() {
-      const now = new Date();
-      elements.clock.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    }
+      <div class="top-tags">
+        <span class="top-tag">🟢 Connected</span>
+        <span class="top-tag">📶 Wi-Fi: Home_Network</span>
+        <span class="top-tag">🕒 10:08 pm</span>
+        <span class="top-tag" style="background-color: #083c5a; color: #38bdf8;">Simulated Mode: On</span>
+      </div>
+    </div>
 
-    function renderTelemetry() {
-      elements.batteryVoltage.textContent = `${formatNumber(state.telemetry.voltage, 2)} V`;
-      elements.batteryCurrent.textContent = `${formatNumber(state.telemetry.current, 2)} A`;
-      elements.batteryTemperature.textContent = `${formatNumber(state.telemetry.temperature, 1)} °C`;
-      elements.batterySoc.textContent = `${Math.round(state.telemetry.soc)}%`;
-      elements.batteryHealth.textContent = `${Math.round(state.telemetry.health)}%`;
-      elements.batteryCycles.textContent = `${state.telemetry.cycleCount}`;
-      elements.cell1.textContent = `${formatNumber(state.telemetry.cellVoltages[0], 3)} V`;
-      elements.cell2.textContent = `${formatNumber(state.telemetry.cellVoltages[1], 3)} V`;
-      elements.cell3.textContent = `${formatNumber(state.telemetry.cellVoltages[2], 3)} V`;
-      elements.cell4.textContent = `${formatNumber(state.telemetry.cellVoltages[3], 3)} V`;
-      state.history.voltage.push(state.telemetry.voltage);
-      state.history.current.push(state.telemetry.current);
-      state.history.temperature.push(state.telemetry.temperature);
-      state.history.soc.push(state.telemetry.soc);
-      if (state.history.voltage.length > 24) state.history.voltage.shift();
-      if (state.history.current.length > 24) state.history.current.shift();
-      if (state.history.temperature.length > 24) state.history.temperature.shift();
-      if (state.history.soc.length > 24) state.history.soc.shift();
-    }
+    <!-- 6 Key Cards Row -->
+    <div class="metrics-row">
+      <div class="card">
+        <div class="card-title">Battery Voltage</div>
+        <div class="card-value">12.74 V</div>
+        <div class="card-subtext">Range: 10.0 - 15.0 V</div>
+      </div>
 
-    function updateVisualState() {
-      elements.simState.textContent = state.simulated ? 'On' : 'Off';
-      elements.simToggle.classList.toggle('active', state.simulated);
-      elements.connectionStatus.textContent = state.connected ? 'Connected' : 'Offline';
-    }
+      <div class="card">
+        <div class="card-title">Battery Current</div>
+        <div class="card-value">2.02 A</div>
+        <div class="card-subtext">Discharging</div>
+      </div>
 
-    function drawChart() {
-      const canvas = elements.graph;
-      if (!canvas || !canvas.getContext) return;
-      const width = canvas.offsetWidth;
-      const height = canvas.offsetHeight;
-      canvas.width = width * devicePixelRatio;
-      canvas.height = height * devicePixelRatio;
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(devicePixelRatio, devicePixelRatio);
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = 'rgba(255,255,255,0.04)';
-      ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-      ctx.lineWidth = 1;
-      for (let i = 1; i < 4; i++) {
-        const y = height * i / 4;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-      const dataSeries = [
-        { values: state.history.voltage, color: '#4cd288' },
-        { values: state.history.current.map(v => v * 3.5), color: '#4d90ff' },
-        { values: state.history.temperature.map(v => (v - 20) * 3), color: '#ff5b7c' }
-      ];
-      dataSeries.forEach(series => {
-        if (!series.values.length) return;
-        const max = Math.max(...series.values);
-        const min = Math.min(...series.values);
-        const range = Math.max(1, max - min);
-        ctx.strokeStyle = series.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        series.values.forEach((value, index) => {
-          const x = (index / (series.values.length - 1 || 1)) * width;
-          const normalized = 1 - ((value - min) / range);
-          const y = normalized * (height - 20) + 10;
-          if (index === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-      });
-    }
+      <div class="card">
+        <div class="card-title">Temperature</div>
+        <div class="card-value">28.8 °C</div>
+        <div class="card-subtext">Range: 0 - 60 °C</div>
+      </div>
 
-    function drawSocTrend() {
-      const canvas = elements.socTrend;
-      if (!canvas || !canvas.getContext) return;
-      const width = canvas.offsetWidth;
-      const height = canvas.offsetHeight;
-      canvas.width = width * devicePixelRatio;
-      canvas.height = height * devicePixelRatio;
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(devicePixelRatio, devicePixelRatio);
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = 'rgba(255,255,255,0.04)';
-      ctx.fillRect(0, 0, width, height);
-      if (!state.history.soc.length) return;
-      const max = 100;
-      const min = 0;
-      ctx.strokeStyle = '#b85bff';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      state.history.soc.forEach((value, index) => {
-        const x = (index / (state.history.soc.length - 1 || 1)) * width;
-        const normalized = 1 - ((value - min) / (max - min));
-        const y = normalized * (height - 20) + 10;
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    }
+      <div class="card">
+        <div class="card-title">State of Charge</div>
+        <div class="card-value">87%</div>
+        <div class="progress-bg"><div class="progress-fill" style="width: 87%;"></div></div>
+      </div>
 
-    function simulateTelemetry() {
-      const time = Date.now() / 1500;
-      state.telemetry.voltage = 12.4 + Math.sin(time) * 0.25 + Math.sin(time / 2) * 0.12;
-      state.telemetry.current = 2.1 + Math.cos(time * 1.2) * 0.18;
-      state.telemetry.temperature = 30 + Math.sin(time / 1.7) * 1.6;
-      state.telemetry.soc = 86 + Math.sin(time / 4) * 2.8;
-      state.telemetry.cellVoltages = [
-        3.12 + Math.sin(time + 0.3) * 0.01,
-        3.13 + Math.sin(time + 0.8) * 0.01,
-        3.11 + Math.sin(time + 1.3) * 0.01,
-        3.12 + Math.sin(time + 1.7) * 0.01
-      ];
-      state.telemetry.health = 95;
-      state.telemetry.cycleCount = 128;
-    }
+      <div class="card">
+        <div class="card-title">Health</div>
+        <div class="card-value">95%</div>
+        <div class="progress-bg"><div class="progress-fill" style="width: 95%;"></div></div>
+      </div>
 
-    async function refreshTelemetry() {
-      if (state.simulated) {
-        simulateTelemetry();
-        state.connected = true;
-      } else {
-        try {
-          const response = await fetch('/api/telemetry', { cache: 'no-store' });
-          if (!response.ok) {
-            throw new Error('Telemetry unavailable');
-          }
-          const payload = await response.json();
-          state.telemetry.voltage = typeof payload.voltage_mv === 'number' ? payload.voltage_mv / 1000 : state.telemetry.voltage;
-          state.telemetry.current = typeof payload.current_ma === 'number' ? payload.current_ma / 1000 : state.telemetry.current;
-          state.telemetry.temperature = typeof payload.temperature_centi_c === 'number' ? payload.temperature_centi_c / 100 : state.telemetry.temperature;
-          state.telemetry.soc = typeof payload.soc_tenths_percent === 'number' ? payload.soc_tenths_percent / 10 : state.telemetry.soc;
-          state.telemetry.cellVoltages = [
-            state.telemetry.voltage / 4,
-            state.telemetry.voltage / 4,
-            state.telemetry.voltage / 4,
-            state.telemetry.voltage / 4
-          ];
-          state.connected = true;
-        } catch (error) {
-          state.connected = false;
-          simulateTelemetry();
-        }
-      }
-      renderTelemetry();
-      updateVisualState();
-      drawChart();
-      drawSocTrend();
-    }
+      <div class="card">
+        <div class="card-title">Cycle Count</div>
+        <div class="card-value">128</div>
+        <div class="card-subtext">Optimal condition</div>
+      </div>
+    </div>
 
-    function refreshAll() {
-      updateClock();
-      refreshTelemetry();
-    }
+    <!-- Main Grid Sections -->
+    <div class="dashboard-grid">
 
-    elements.simToggle.addEventListener('click', () => {
-      state.simulated = !state.simulated;
-      updateVisualState();
-      refreshTelemetry();
-    });
+      <!-- Column 1: Live Telemetry & SOC Charts -->
+      <div class="column">
+        <!-- Live Telemetry Graph -->
+        <div class="card" style="flex: 1.2;">
+          <div class="card-title">
+            <span>Live Telemetry</span>
+            <span class="top-tag" style="padding: 2px 6px; font-size: 9px;">1 Minute</span>
+          </div>
+          <div class="chart-box">
+            <svg viewBox="0 0 300 100" preserveAspectRatio="none">
+              <path d="M0,50 Q30,20 60,70 T120,30 T180,80 T240,20 T300,60" fill="none" stroke="#38bdf8" stroke-width="2"/>
+              <path d="M0,70 Q30,40 60,90 T120,20 T180,60 T240,40 T300,80" fill="none" stroke="#f43f5e" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
 
-    window.addEventListener('resize', () => {
-      drawChart();
-      drawSocTrend();
-    });
+        <!-- SOC Over Time Graph -->
+        <div class="card" style="flex: 1;">
+          <div class="card-title">SOC Over Time</div>
+          <div class="chart-box">
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none">
+              <path d="M0,30 Q75,25 150,28 T300,22" fill="none" stroke="#f97316" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
 
-    updateVisualState();
-    updateClock();
-    refreshTelemetry();
-    setInterval(() => {
-      updateClock();
-      refreshTelemetry();
-    }, 2200);
-  </script>
-<script>
-  function syncGlobalStatus() {
-    const tag = document.getElementById('status-tag');
-    if (!tag) return;
+      <!-- Column 2: Fault Status & Cell Voltages -->
+      <div class="column">
+        <!-- Fault Status -->
+        <div class="card" style="flex: 1.3;">
+          <div class="card-title" style="margin-bottom: 6px;">
+            <span>Fault Status</span>
+            <span class="ok-badge">No Faults</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="item-row"><span>Over Voltage</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Under Voltage</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Over Current</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Over Temperature</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Short Circuit</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Cell Imbalance</span><span class="ok-badge">OK</span></div>
+          </div>
+        </div>
 
-    let savedStatus = localStorage.getItem('systemStatus') || 'offline';
+        <!-- Cell Voltages -->
+        <div class="card" style="flex: 1;">
+          <div class="card-title" style="margin-bottom: 6px;">Cell Voltages</div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="item-row"><span>Cell 1</span><span style="color: #38bdf8; font-weight: 600;">3.112 V</span></div>
+            <div class="item-row"><span>Cell 2</span><span style="color: #38bdf8; font-weight: 600;">3.120 V</span></div>
+            <div class="item-row"><span>Cell 3</span><span style="color: #38bdf8; font-weight: 600;">3.101 V</span></div>
+            <div class="item-row"><span>Cell 4</span><span style="color: #38bdf8; font-weight: 600;">3.113 V</span></div>
+          </div>
+        </div>
+      </div>
 
-    if (savedStatus === 'online') {
-      tag.innerHTML = '🟢 Online';
-      tag.style.color = '#4ade80';
-      tag.style.backgroundColor = '#143823';
-    } else {
-      tag.innerHTML = '🔴 Offline';
-      tag.style.color = '#f87171';
-      tag.style.backgroundColor = '#1e293b';
-    }
-  }
-  window.addEventListener('DOMContentLoaded', syncGlobalStatus);
-  window.addEventListener('storage', syncGlobalStatus);
-</script>
+      <!-- Column 3: Device Info & Recent Events -->
+      <div class="column">
+        <!-- Device Info -->
+        <div class="card" style="flex: 1.1;">
+          <div class="card-title" style="margin-bottom: 6px;">Device Information</div>
+          <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px;">
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Device Name</span><span style="font-weight: 600;">STM32 BMS</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Firmware Version</span><span>v1.0.3</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Bootloader Version</span><span>v2.1.0</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Hardware Version</span><span>REV B</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Device ID</span><span>BMS-STM32-001</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Uptime</span><span>2d 14h 23m 15s</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Last Reset</span><span>Power On</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Events -->
+        <div class="card" style="flex: 1.2;">
+          <div class="card-title" style="margin-bottom: 6px;">Recent Events</div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="item-row">
+              <span>System started</span>
+              <span style="font-size: 9px; color: #64748b;">12:30:10 PM</span>
+            </div>
+            <div class="item-row">
+              <span>Telemetry connected</span>
+              <span style="font-size: 9px; color: #64748b;">12:30:09 PM</span>
+            </div>
+            <div class="item-row">
+              <span>Config updated</span>
+              <span style="font-size: 9px; color: #64748b;">12:29:02 PM</span>
+            </div>
+            <div class="item-row">
+              <span>Firmware updated</span>
+              <span style="font-size: 9px; color: #64748b;">10:15:33 AM</span>
+            </div>
+            <div class="item-row">
+              <span>Temp warning</span>
+              <span style="font-size: 9px; color: #64748b;">09:12:11 AM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
 </body>
 </html>
