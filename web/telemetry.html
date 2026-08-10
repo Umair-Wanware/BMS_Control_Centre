@@ -15,7 +15,7 @@
     html, body {
       height: 100vh;
       width: 100vw;
-      overflow: hidden; /* Scrollbar bilkul band karne ke liye */
+      overflow: hidden; 
       background-color: #0d131f;
       color: #ffffff;
     }
@@ -23,8 +23,6 @@
     body {
       display: flex;
     }
-
-    /* Compact Sidebar */
     .sidebar {
       width: 230px;
       height: 100vh;
@@ -76,7 +74,6 @@
       color: #ffffff;
     }
 
-    /* Main Area - Fitted inside Screen */
     .main-content {
       flex: 1;
       height: 100vh;
@@ -144,8 +141,6 @@
       font-size: 11px;
       color: #64748b;
     }
-
-    /* Cell Voltages Compact Grid */
     .cell-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -169,8 +164,6 @@
   </style>
 </head>
 <body>
-
-  <!-- Left Sidebar -->
   <div class="sidebar">
     <div class="brand-box">
       <h3>BMS Control Centre</h3>
@@ -186,8 +179,6 @@
     <a href="#" class="nav-btn">Diagnostics</a>
     <a href="#" class="nav-btn">Settings</a>
   </div>
-
-  <!-- Main Content -->
   <div class="main-content">
     
     <div class="header-bar">
@@ -197,8 +188,6 @@
         <span class="tag">10:15 am</span>
       </div>
     </div>
-
-    <!-- Telemetry Cards Grid -->
     <div class="dashboard-grid">
       
       <div class="card">
@@ -249,16 +238,11 @@
     </div>
 
   </div>
-<!-- Baki Pages (e.g. telemetry.html / charts.html / logs.html) Script -->
 <script>
   let pageSimInterval = null;
 
-  // Har page ke apne custom updates yahan likhein (e.g. Logs update, Charts update)
   function updatePageData() {
-    // Example: Agar ye Telemetry / Chart page hai toh graphs re-render honge
     console.log("Simulated Data Updating...");
-
-    // Aapka page-specific update code yahan aayega
     if (typeof drawGraphs === 'function') drawGraphs();
   }
 
@@ -274,8 +258,6 @@
       pageSimInterval = null; // Freeze data
     }
   }
-
-  // UI aur Simulation Sync Control
   function syncSimMode() {
     const isSimOn = localStorage.getItem('simulatedMode') === 'true';
     const btn = document.getElementById('sim-mode-btn');
@@ -293,26 +275,19 @@
         btn.style.borderColor = '#334155';
       }
     }
-
-    // On hone par run karo, Off hone par freeze
     if (isSimOn) {
       startSimulation();
     } else {
       stopSimulation();
     }
   }
-
-  // Toggle Function (Button click karne par)
   function toggleSimulatedMode() {
     let isSimOn = localStorage.getItem('simulatedMode') === 'true';
     localStorage.setItem('simulatedMode', (!isSimOn).toString());
     syncSimMode();
   }
-
-  // 1. Page Load hote hi status check karo
   window.addEventListener('DOMContentLoaded', syncSimMode);
 
-  // 2. Dusre Tab ya Window me change hone par automatic sync
   window.addEventListener('storage', (e) => {
     if (e.key === 'simulatedMode') {
       syncSimMode();
