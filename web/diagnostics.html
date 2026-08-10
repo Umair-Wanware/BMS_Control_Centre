@@ -1,28 +1,351 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diagnostics - BMS Control Centre</title>
-</head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagnostics - BMS Control Centre</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
 
+    html, body {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden; /* Scrollbar off */
+      background-color: #0b111e;
+      color: #ffffff;
+    }
+
+    body {
+      display: flex;
+    }
+
+    /* Sidebar Area */
+    .sidebar {
+      width: 240px;
+      height: 100vh;
+      background-color: #0f172a;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-right: 1px solid #1e293b;
+    }
+
+    .brand-box {
+      background-color: #ffffff;
+      color: #0f172a;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    .brand-box h3 { font-size: 14px; font-weight: 700; }
+    .brand-box p { font-size: 11px; color: #64748b; }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: 0.2s;
+    }
+
+    .nav-btn.active {
+      background-color: #0e3a40;
+      color: #38bdf8;
+    }
+
+    .nav-btn:hover:not(.active) {
+      background-color: #1e293b;
+      color: #ffffff;
+    }
+
+    /* Main Workspace */
+    .main-content {
+      flex: 1;
+      height: 100vh;
+      padding: 20px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-title span {
+      font-size: 11px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .page-title h2 {
+      font-size: 22px;
+      margin-top: 2px;
+    }
+
+    .tag {
+      background-color: #1e293b;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    /* Diagnostics Grid */
+    .diag-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .card {
+      background-color: #111a2e;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #38bdf8;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .diag-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .diag-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #0b111e;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #1e293b;
+    }
+
+    .diag-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .diag-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .diag-desc {
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-ok { background-color: rgba(74, 222, 128, 0.15); color: #4ade80; }
+    .status-warn { background-color: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .status-error { background-color: rgba(248, 113, 113, 0.15); color: #f87171; }
+
+    .btn-run {
+      background-color: #38bdf8;
+      color: #0b111e;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: auto;
+      transition: 0.2s;
+    }
+
+    .btn-run:hover {
+      background-color: #7dd3fc;
+    }
+  </style>
+</head>
 <body>
 
-    <h1>BMS Control Centre</h1>
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="brand-box">
+      <h3>BMS Control Centre</h3>
+      <p>ESP32 Control Hub</p>
+    </div>
 
-    <h2>System Diagnostics</h2>
+    <a href="index.html" class="nav-btn">Dashboard</a>
+    <a href="telemetry.html" class="nav-btn">Telemetry</a>
+    <a href="charts.html" class="nav-btn">Charts</a>
+    <a href="firmware.html" class="nav-btn">Firmware Update</a>
+    <a href="config.html" class="nav-btn">Configuration</a>
+    <a href="logs.html" class="nav-btn">Logs</a>
+    <a href="diagnostics.html" class="nav-btn active">Diagnostics</a>
+    <a href="settings.html" class="nav-btn">Settings</a>
+  </div>
 
-    <p>ESP32: <strong>Online</strong></p>
-    <p>STM32 BMS: <strong>Online</strong></p>
-    <p>Battery Sensor: <strong>OK</strong></p>
-    <p>Temperature Sensor: <strong>OK</strong></p>
-    <p>Current Sensor: <strong>OK</strong></p>
-    <p>Cell Monitor: <strong>OK</strong></p>
-    <p>Communication: <strong>OK</strong></p>
+  <!-- Main Content Area -->
+  <div class="main-content">
+    
+    <!-- Top Header Bar -->
+    <div class="top-bar">
+      <div class="page-title">
+        <span>HARDWARE & SELF-TEST</span>
+        <h2>System Diagnostics</h2>
+      </div>
 
-    <br>
+      <div class="top-tags">
+        <span id="status-tag" class="tag">🔴 Offline</span>
+        <span class="tag">Self-Test Ready</span>
+      </div>
+    </div>
 
-    <button>Run Diagnostics</button>
+    <!-- Diagnostics Grid -->
+    <div class="diag-grid">
+      
+      <!-- Card 1: Hardware Status -->
+      <div class="card">
+        <div class="card-title">
+          <span>Hardware Subsystems</span>
+          <span style="font-size: 11px; color: #64748b;">4 Active</span>
+        </div>
+
+        <div class="diag-list">
+          <div class="diag-item">
+            <div class="diag-info">
+              <span class="diag-name">MOSFET Switch Array</span>
+              <span class="diag-desc">Charge/Discharge Protection</span>
+            </div>
+            <span class="status-badge status-ok">NORMAL</span>
+          </div>
+
+          <div class="diag-item">
+            <div class="diag-info">
+              <span class="diag-name">Cell Balance Controller</span>
+              <span class="diag-desc">Passive Balancing Circuit</span>
+            </div>
+            <span class="status-badge status-ok">NORMAL</span>
+          </div>
+
+          <div class="diag-item">
+            <div class="diag-info">
+              <span class="diag-name">Temperature Sensors</span>
+              <span class="diag-desc">NTC Probe Array (4x)</span>
+            </div>
+            <span class="status-badge status-ok">4/4 OK</span>
+          </div>
+
+          <div class="diag-item">
+            <div class="diag-info">
+              <span class="diag-name">Current Shunt ADC</span>
+              <span class="diag-desc">High Precision Current Sense</span>
+            </div>
+            <span class="status-badge status-ok">CALIBRATED</span>
+          </div>
+        </div>
+
+        <button class="btn-run">Run Hardware Self-Test</button>
+      </div>
+
+      <!-- Card 2: Communication & Bus Health -->
+      <div class="card">
+        <div class="card-title">
+          <span>Communication & Interfaces</span>
+          <span style="font-size: 11px; color: #64748b;">Bus Status</span>
+        </div>
+
+        <div class="diag-list">
+          <div class="diag-item">
+            <div class="diag-info">
+              <span class="diag-name">ESP32 Wi-Fi Module</span>
+              <span class="diag-desc">Local Network Bridge</span>
+            </div>
+            <span class="status-badge status-ok">CONNECTED</span>
+          </div>
+
+          <div class="diag-item">
+            <div class="diag-info">
+              <span class="diag-name">CAN Bus Interface</span>
+              <span class="diag-desc">Vehicle / Inverter Comms</span>
+            </div>
+            <span class="status-badge status-warn">IDLE</span>
+          </div>
+
+          <div class="diag-item">
+            <div class="diag-info">
+              <span class="diag-name">UART Serial Bus</span>
+              <span class="diag-desc">BMS Core Microcontroller</span>
+            </div>
+            <span class="status-badge status-ok">OK (115200 baud)</span>
+          </div>
+
+          <div class="diag-item">
+            <div class="diag-info">
+              <span class="diag-name">EEPROM Storage</span>
+              <span class="diag-desc">Configuration & Logs Memory</span>
+            </div>
+            <span class="status-badge status-ok">HEALTHY</span>
+          </div>
+        </div>
+
+        <button class="btn-run">Ping Bus Interfaces</button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Status Sync Script -->
+  <script>
+    function updateDiagStatus() {
+      const tag = document.getElementById('status-tag');
+      if (!tag) return;
+      let savedStatus = localStorage.getItem('systemStatus');
+      if (savedStatus === 'online') {
+        tag.innerHTML = '🟢 Online';
+        tag.style.color = '#4ade80';
+        tag.style.backgroundColor = '#143823';
+      } else {
+        tag.innerHTML = '🔴 Offline';
+        tag.style.color = '#f87171';
+        tag.style.backgroundColor = '#1e293b';
+      }
+    }
+    window.onload = updateDiagStatus;
+    window.addEventListener('storage', updateDiagStatus);
+  </script>
 
 </body>
 </html>
