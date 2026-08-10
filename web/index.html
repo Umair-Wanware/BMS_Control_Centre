@@ -484,5 +484,25 @@
       refreshTelemetry();
     }, 2200);
   </script>
+<script>
+  function syncGlobalStatus() {
+    const tag = document.getElementById('status-tag');
+    if (!tag) return;
+
+    let savedStatus = localStorage.getItem('systemStatus') || 'offline';
+
+    if (savedStatus === 'online') {
+      tag.innerHTML = '🟢 Online';
+      tag.style.color = '#4ade80';
+      tag.style.backgroundColor = '#143823';
+    } else {
+      tag.innerHTML = '🔴 Offline';
+      tag.style.color = '#f87171';
+      tag.style.backgroundColor = '#1e293b';
+    }
+  }
+  window.addEventListener('DOMContentLoaded', syncGlobalStatus);
+  window.addEventListener('storage', syncGlobalStatus);
+</script>
 </body>
 </html>
