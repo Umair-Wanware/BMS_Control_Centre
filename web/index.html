@@ -131,7 +131,7 @@
       color: #cbd5e1;
     }
 
-    /* Clickable Toggle Button Style */
+    /* Interactive Toggle Button */
     .toggle-btn {
       cursor: pointer;
       user-select: none;
@@ -186,6 +186,7 @@
     .progress-fill {
       height: 100%;
       background-color: #38bdf8;
+      transition: width 0.3s ease;
     }
 
     /* 6 Metrics Grid */
@@ -277,7 +278,7 @@
       </div>
       <div class="status-row" style="color: #64748b; margin-top: 2px;">
         <span>Last Update</span>
-        <span>12:30:45 PM</span>
+        <span id="last-update-time">12:30:45 PM</span>
       </div>
     </div>
   </div>
@@ -295,7 +296,7 @@
       <div class="top-tags">
         <span class="top-tag">🟢 Connected</span>
         <span class="top-tag">📶 Wi-Fi: Home_Network</span>
-        <span class="top-tag">🕒 10:08 pm</span>
+        <span id="top-clock" class="top-tag">🕒 10:08:00 pm</span>
         
         <!-- Interactive Simulated Mode Toggle Button -->
         <span id="sim-mode-btn" class="top-tag toggle-btn" onclick="toggleSimulatedMode()">
@@ -308,32 +309,32 @@
     <div class="metrics-row">
       <div class="card">
         <div class="card-title">Battery Voltage</div>
-        <div class="card-value">12.74 V</div>
+        <div id="val-voltage" class="card-value">12.74 V</div>
         <div class="card-subtext">Range: 10.0 - 15.0 V</div>
       </div>
 
       <div class="card">
         <div class="card-title">Battery Current</div>
-        <div class="card-value">2.02 A</div>
-        <div class="card-subtext">Discharging</div>
+        <div id="val-current" class="card-value">2.02 A</div>
+        <div id="val-current-status" class="card-subtext">Discharging</div>
       </div>
 
       <div class="card">
         <div class="card-title">Temperature</div>
-        <div class="card-value">28.8 °C</div>
+        <div id="val-temp" class="card-value">28.8 °C</div>
         <div class="card-subtext">Range: 0 - 60 °C</div>
       </div>
 
       <div class="card">
         <div class="card-title">State of Charge</div>
-        <div class="card-value">87%</div>
-        <div class="progress-bg"><div class="progress-fill" style="width: 87%;"></div></div>
+        <div id="val-soc" class="card-value">87%</div>
+        <div class="progress-bg"><div id="bar-soc" class="progress-fill" style="width: 87%;"></div></div>
       </div>
 
       <div class="card">
         <div class="card-title">Health</div>
-        <div class="card-value">95%</div>
-        <div class="progress-bg"><div class="progress-fill" style="width: 95%;"></div></div>
+        <div id="val-health" class="card-value">95%</div>
+        <div class="progress-bg"><div id="bar-health" class="progress-fill" style="width: 95%;"></div></div>
       </div>
 
       <div class="card">
@@ -356,8 +357,8 @@
           </div>
           <div class="chart-box">
             <svg viewBox="0 0 300 100" preserveAspectRatio="none">
-              <path d="M0,50 Q30,20 60,70 T120,30 T180,80 T240,20 T300,60" fill="none" stroke="#38bdf8" stroke-width="2"/>
-              <path d="M0,70 Q30,40 60,90 T120,20 T180,60 T240,40 T300,80" fill="none" stroke="#f43f5e" stroke-width="2"/>
+              <path id="graph-path-1" d="" fill="none" stroke="#38bdf8" stroke-width="2"/>
+              <path id="graph-path-2" d="" fill="none" stroke="#f43f5e" stroke-width="2"/>
             </svg>
           </div>
         </div>
@@ -367,7 +368,7 @@
           <div class="card-title">SOC Over Time</div>
           <div class="chart-box">
             <svg viewBox="0 0 300 60" preserveAspectRatio="none">
-              <path d="M0,30 Q75,25 150,28 T300,22" fill="none" stroke="#f97316" stroke-width="2"/>
+              <path id="graph-soc-path" d="" fill="none" stroke="#f97316" stroke-width="2"/>
             </svg>
           </div>
         </div>
@@ -395,10 +396,10 @@
         <div class="card" style="flex: 1;">
           <div class="card-title" style="margin-bottom: 6px;">Cell Voltages</div>
           <div style="display: flex; flex-direction: column; gap: 4px;">
-            <div class="item-row"><span>Cell 1</span><span style="color: #38bdf8; font-weight: 600;">3.112 V</span></div>
-            <div class="item-row"><span>Cell 2</span><span style="color: #38bdf8; font-weight: 600;">3.120 V</span></div>
-            <div class="item-row"><span>Cell 3</span><span style="color: #38bdf8; font-weight: 600;">3.101 V</span></div>
-            <div class="item-row"><span>Cell 4</span><span style="color: #38bdf8; font-weight: 600;">3.113 V</span></div>
+            <div class="item-row"><span>Cell 1</span><span id="cell-1" style="color: #38bdf8; font-weight: 600;">3.112 V</span></div>
+            <div class="item-row"><span>Cell 2</span><span id="cell-2" style="color: #38bdf8; font-weight: 600;">3.120 V</span></div>
+            <div class="item-row"><span>Cell 3</span><span id="cell-3" style="color: #38bdf8; font-weight: 600;">3.101 V</span></div>
+            <div class="item-row"><span>Cell 4</span><span id="cell-4" style="color: #38bdf8; font-weight: 600;">3.113 V</span></div>
           </div>
         </div>
       </div>
@@ -425,7 +426,7 @@
               <span style="color: #64748b;">Device ID</span><span>BMS-STM32-001</span>
             </div>
             <div class="item-row" style="background: none; border: none; padding: 1px 0;">
-              <span style="color: #64748b;">Uptime</span><span>2d 14h 23m 15s</span>
+              <span style="color: #64748b;">Uptime</span><span id="val-uptime">2d 14h 23m 15s</span>
             </div>
             <div class="item-row" style="background: none; border: none; padding: 1px 0;">
               <span style="color: #64748b;">Last Reset</span><span>Power On</span>
@@ -465,8 +466,88 @@
 
   </div>
 
-  <!-- Simulated Mode Toggle Script -->
+  <!-- Live Simulation Logic -->
   <script>
+    let simInterval = null;
+    let animOffset = 0;
+    let secondsCounter = 0;
+
+    // Draw Dynamic Waves for Graphs
+    function drawGraphs() {
+      animOffset += 0.15;
+      
+      // Graph 1 (Blue Wave)
+      let d1 = "M 0 " + (50 + Math.sin(animOffset) * 20);
+      for (let x = 15; x <= 300; x += 15) {
+        let y = 50 + Math.sin(animOffset + x * 0.05) * 25 + Math.sin(x * 0.1) * 5;
+        d1 += " L " + x + " " + y;
+      }
+      document.getElementById('graph-path-1').setAttribute('d', d1);
+
+      // Graph 2 (Red Wave)
+      let d2 = "M 0 " + (60 + Math.cos(animOffset) * 15);
+      for (let x = 15; x <= 300; x += 15) {
+        let y = 55 + Math.cos(animOffset + x * 0.04) * 20 + Math.cos(x * 0.08) * 8;
+        d2 += " L " + x + " " + y;
+      }
+      document.getElementById('graph-path-2').setAttribute('d', d2);
+
+      // SOC Wave (Orange Line)
+      let dSOC = "M 0 " + (30 + Math.sin(animOffset * 0.5) * 3);
+      for (let x = 30; x <= 300; x += 30) {
+        let y = 30 + Math.sin(animOffset * 0.5 + x * 0.02) * 4;
+        dSOC += " L " + x + " " + y;
+      }
+      document.getElementById('graph-soc-path').setAttribute('d', dSOC);
+    }
+
+    // Update Random Live Values
+    function updateMetrics() {
+      // 1. Clock Update
+      const now = new Date();
+      document.getElementById('top-clock').innerText = '🕒 ' + now.toLocaleTimeString();
+      document.getElementById('last-update-time').innerText = now.toLocaleTimeString();
+
+      // 2. Voltage (12.65 V to 12.82 V)
+      const voltage = (12.65 + Math.random() * 0.17).toFixed(2);
+      document.getElementById('val-voltage').innerText = voltage + ' V';
+
+      // 3. Current (1.90 A to 2.15 A)
+      const current = (1.90 + Math.random() * 0.25).toFixed(2);
+      document.getElementById('val-current').innerText = current + ' A';
+
+      // 4. Temperature (28.3 °C to 29.2 °C)
+      const temp = (28.3 + Math.random() * 0.9).toFixed(1);
+      document.getElementById('val-temp').innerText = temp + ' °C';
+
+      // 5. Cell Voltages
+      document.getElementById('cell-1').innerText = (3.105 + Math.random() * 0.015).toFixed(3) + ' V';
+      document.getElementById('cell-2').innerText = (3.115 + Math.random() * 0.012).toFixed(3) + ' V';
+      document.getElementById('cell-3').innerText = (3.095 + Math.random() * 0.018).toFixed(3) + ' V';
+      document.getElementById('cell-4').innerText = (3.108 + Math.random() * 0.014).toFixed(3) + ' V';
+
+      // 6. Uptime Simulation Counter
+      secondsCounter++;
+      let secs = 15 + secondsCounter;
+      document.getElementById('val-uptime').innerText = `2d 14h 23m ${secs % 60}s`;
+
+      // Draw Graphs Animation Frame
+      drawGraphs();
+    }
+
+    function startSimulation() {
+      if (!simInterval) {
+        simInterval = setInterval(updateMetrics, 500); // Har 500ms par update Hoga
+      }
+    }
+
+    function stopSimulation() {
+      if (simInterval) {
+        clearInterval(simInterval);
+        simInterval = null; // Graph aur Values Ruk Jayenge
+      }
+    }
+
     function updateSimModeUI(isSimOn) {
       const btn = document.getElementById('sim-mode-btn');
       if (!btn) return;
@@ -476,28 +557,34 @@
         btn.style.backgroundColor = '#083c5a';
         btn.style.color = '#38bdf8';
         btn.style.borderColor = '#162646';
+        startSimulation(); // Live Chalu Kar do
       } else {
         btn.innerText = 'Simulated Mode: Off';
         btn.style.backgroundColor = '#1e293b';
         btn.style.color = '#94a3b8';
         btn.style.borderColor = '#334155';
+        stopSimulation(); // Sab Freeze Kar do
       }
     }
 
     function toggleSimulatedMode() {
       let isSimOn = localStorage.getItem('simulatedMode') === 'true';
-      isSimOn = !isSimOn; // Toggle state
+      isSimOn = !isSimOn;
       localStorage.setItem('simulatedMode', isSimOn);
       updateSimModeUI(isSimOn);
     }
 
-    // On Load Check State
+    // Initial Setup
     window.addEventListener('DOMContentLoaded', () => {
       let savedSim = localStorage.getItem('simulatedMode');
       if (savedSim === null) {
         savedSim = 'true';
         localStorage.setItem('simulatedMode', 'true');
       }
+      
+      // Draw initial graph once
+      drawGraphs();
+      
       updateSimModeUI(savedSim === 'true');
     });
   </script>
