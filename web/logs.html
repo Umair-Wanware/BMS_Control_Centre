@@ -1,55 +1,298 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logs - BMS Control Centre</title>
-</head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logs - BMS Control Centre</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
 
+    html, body {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden; /* Scrollbar off */
+      background-color: #0b111e;
+      color: #ffffff;
+    }
+
+    body {
+      display: flex;
+    }
+
+    /* Sidebar Area */
+    .sidebar {
+      width: 240px;
+      height: 100vh;
+      background-color: #0f172a;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-right: 1px solid #1e293b;
+    }
+
+    .brand-box {
+      background-color: #ffffff;
+      color: #0f172a;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    .brand-box h3 { font-size: 14px; font-weight: 700; }
+    .brand-box p { font-size: 11px; color: #64748b; }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: 0.2s;
+    }
+
+    .nav-btn.active {
+      background-color: #0e3a40;
+      color: #38bdf8;
+    }
+
+    .nav-btn:hover:not(.active) {
+      background-color: #1e293b;
+      color: #ffffff;
+    }
+
+    /* Main Workspace */
+    .main-content {
+      flex: 1;
+      height: 100vh;
+      padding: 20px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-title span {
+      font-size: 11px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .page-title h2 {
+      font-size: 22px;
+      margin-top: 2px;
+    }
+
+    .tag {
+      background-color: #1e293b;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    /* Logs Card & Table Area */
+    .card {
+      background-color: #111a2e;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #38bdf8;
+    }
+
+    .btn-clear {
+      background-color: #1e293b;
+      color: #cbd5e1;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .btn-clear:hover {
+      background-color: #334155;
+      color: #ffffff;
+    }
+
+    .table-container {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      background-color: #0b111e;
+      color: #64748b;
+      padding: 10px 14px;
+      font-weight: 600;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #1e293b;
+      color: #cbd5e1;
+    }
+
+    .badge {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-info { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+    .badge-warn { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .badge-error { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+  </style>
+</head>
 <body>
 
-    <h1>BMS Control Centre</h1>
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="brand-box">
+      <h3>BMS Control Centre</h3>
+      <p>ESP32 Control Hub</p>
+    </div>
 
-    <h2>System Logs</h2>
+    <a href="index.html" class="nav-btn">Dashboard</a>
+    <a href="telemetry.html" class="nav-btn">Telemetry</a>
+    <a href="charts.html" class="nav-btn">Charts</a>
+    <a href="firmware.html" class="nav-btn">Firmware Update</a>
+    <a href="config.html" class="nav-btn">Configuration</a>
+    <a href="logs.html" class="nav-btn active">Logs</a>
+    <a href="diagnostics.html" class="nav-btn">Diagnostics</a>
+    <a href="settings.html" class="nav-btn">Settings</a>
+  </div>
 
-    <table border="1" cellpadding="10">
-        <tr>
-            <th>Time</th>
-            <th>Event</th>
-            <th>Status</th>
-        </tr>
+  <!-- Main Content Area -->
+  <div class="main-content">
+    
+    <!-- Top Header Bar -->
+    <div class="top-bar">
+      <div class="page-title">
+        <span>EVENT MONITORING</span>
+        <h2>System Logs</h2>
+      </div>
 
-        <tr>
-            <td>12:30:10 PM</td>
-            <td>System Started</td>
-            <td>Success</td>
-        </tr>
+      <div class="top-tags">
+        <span id="status-tag" class="tag">🔴 Offline</span>
+        <span class="tag">System Events</span>
+      </div>
+    </div>
 
-        <tr>
-            <td>12:30:09 PM</td>
-            <td>Telemetry Connected</td>
-            <td>Success</td>
-        </tr>
+    <!-- Logs Table Container -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Recent Event History</div>
+        <button class="btn-clear">Clear Logs</button>
+      </div>
 
-        <tr>
-            <td>12:29:02 PM</td>
-            <td>Configuration Updated</td>
-            <td>Success</td>
-        </tr>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Type</th>
+              <th>Message</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>10:14:32 AM</td>
+              <td><span class="badge badge-info">INFO</span></td>
+              <td>Telemetry data stream connected successfully</td>
+              <td>ESP32_WiFi</td>
+            </tr>
+            <tr>
+              <td>10:10:05 AM</td>
+              <td><span class="badge badge-warn">WARN</span></td>
+              <td>Cell 3 Voltage slightly below average (3.122V)</td>
+              <td>BMS_Core</td>
+            </tr>
+            <tr>
+              <td>09:45:18 AM</td>
+              <td><span class="badge badge-info">INFO</span></td>
+              <td>System boot sequence complete</td>
+              <td>System</td>
+            </tr>
+            <tr>
+              <td>08:30:00 AM</td>
+              <td><span class="badge badge-error">ERROR</span></td>
+              <td>Over-Current protection triggered briefly</td>
+              <td>Safety_Module</td>
+            </tr>
+            <tr>
+              <td>08:28:12 AM</td>
+              <td><span class="badge badge-info">INFO</span></td>
+              <td>Battery charging cycle started</td>
+              <td>Power_Manager</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-        <tr>
-            <td>10:15:33 AM</td>
-            <td>Firmware Update Completed</td>
-            <td>Success</td>
-        </tr>
+  </div>
 
-        <tr>
-            <td>09:12:11 AM</td>
-            <td>Over Temperature Warning</td>
-            <td>Warning</td>
-        </tr>
-
-    </table>
+  <!-- Status Sync Script -->
+  <script>
+    function updateLogsStatus() {
+      const tag = document.getElementById('status-tag');
+      if (!tag) return;
+      let savedStatus = localStorage.getItem('systemStatus');
+      if (savedStatus === 'online') {
+        tag.innerHTML = '🟢 Online';
+        tag.style.color = '#4ade80';
+        tag.style.backgroundColor = '#143823';
+      } else {
+        tag.innerHTML = '🔴 Offline';
+        tag.style.color = '#f87171';
+        tag.style.backgroundColor = '#1e293b';
+      }
+    }
+    window.onload = updateLogsStatus;
+    window.addEventListener('storage', updateLogsStatus);
+  </script>
 
 </body>
 </html>
