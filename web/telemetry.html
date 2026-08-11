@@ -184,7 +184,7 @@
     <div class="header-bar">
       <h2>Telemetry</h2>
       <div class="status-tags">
-        <span class="tag">🔴 Offline</span>
+        <span class="tag" id="status-pill">🔴 Offline</span>
         <span class="tag">10:15 am</span>
       </div>
     </div>
@@ -293,6 +293,32 @@
       syncSimMode();
     }
   });
+function updateStatus() {
+  let statusTag = document.getElementById('status-pill');
+  let isSimOn = localStorage.getItem('simulatedMode') === 'true';
+
+  if (statusTag) {
+    if (isSimOn) {
+      statusTag.innerHTML = '🟢 Online';
+    } else {
+      statusTag.innerHTML = '🔴 Offline';
+    }
+  }
+}
+
+  function updateStatus() {
+    let statusTag = document.getElementById('status-pill');
+    let isSimOn = localStorage.getItem('simulatedMode') === 'true';
+
+    if (statusTag) {
+      if (isSimOn) {
+        statusTag.innerHTML = '🟢 Online';
+      } else {
+        statusTag.innerHTML = '🔴 Offline';
+      }
+    }
+  }
+  updateStatus();
 </script>
 </body>
 </html>
