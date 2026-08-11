@@ -227,7 +227,7 @@
       </div>
 
       <div class="top-tags">
-        <span id="status-tag" class="tag">🔴 Offline</span>
+        <span id="status-pill" class="tag">🔴 Offline</span>
         <span class="tag">Live Telemetry Graph</span>
       </div>
     </div>
@@ -343,31 +343,32 @@
   }
 
   // UI aur Simulation Sync Control
-  function syncSimMode() {
-    const isSimOn = localStorage.getItem('simulatedMode') === 'true';
-    const btn = document.getElementById('sim-mode-btn');
+ function syncSimMode() {
+  const isSimOn = localStorage.getItem('simulatedMode') === 'true';
+  const statusTag = document.getElementById('status-pill');
 
-    if (btn) {
-      if (isSimOn) {
-        btn.innerText = 'Simulated Mode: On';
-        btn.style.backgroundColor = '#083c5a';
-        btn.style.color = '#38bdf8';
-        btn.style.borderColor = '#162646';
-      } else {
-        btn.innerText = 'Simulated Mode: Off';
-        btn.style.backgroundColor = '#1e293b';
-        btn.style.color = '#94a3b8';
-        btn.style.borderColor = '#334155';
-      }
-    }
-
-    // On hone par run karo, Off hone par freeze
+  // Status tag update
+  if (statusTag) {
     if (isSimOn) {
-      startSimulation();
+      statusTag.innerHTML = '🟢 Online';
     } else {
-      stopSimulation();
+      statusTag.innerHTML = '🔴 Offline';
     }
   }
+
+  // Live simulation control
+  if (isSimOn) {
+    startSimulation();
+  } else {
+    stopSimulation();
+  }
+}
+
+// Page load hone par sync karega
+syncSimMode();
+
+// Dashboard toggle par sync karega
+window.addEventListener('storage', syncSimMode);  
 
   // Toggle Function (Button click karne par)
   function toggleSimulatedMode() {
