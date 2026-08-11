@@ -4,41 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Firmware Update - BMS Control Centre</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color: #0b1120; color: #f8fafc; min-height: 100vh; display: flex; }
-    
-    /* Sidebar Styling */
-    .sidebar { width: 250px; background: #0f172a; border-right: 1px solid rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; padding: 20px; }
-    .sidebar-brand { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 30px; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; text-align: center; }
-    .sidebar-menu { display: flex; flex-direction: column; gap: 8px; }
-    .sidebar-menu a { color: #94a3b8; text-decoration: none; padding: 10px 15px; border-radius: 6px; font-size: 14px; transition: 0.2s; }
-    .sidebar-menu a:hover, .sidebar-menu a.active { background: #0284c7; color: #fff; }
-
-    /* Main Content Area */
-    .main-content { flex: 1; padding: 30px; overflow-y: auto; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-    .page-title h2 { color: #fff; font-size: 24px; }
-    
-    .tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #1e293b; color: #f87171; }
-    
-    .firmware-container { display: flex; flex-direction: column; gap: 20px; max-width: 650px; }
-    .card { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px; }
-    
-    .info-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 15px; color: #cbd5e1; }
-    .value { font-weight: 600; color: #fff; }
-    
-    .btn { background: #0284c7; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: 0.2s; margin-top: 10px; }
-    .btn:hover { background: #0369a1; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    
-    .upload-box { border: 2px dashed rgba(255, 255, 255, 0.2); padding: 25px; text-align: center; border-radius: 8px; margin: 15px 0; background: rgba(15, 23, 42, 0.4); }
-    .upload-label { cursor: pointer; color: #38bdf8; font-weight: 600; display: inline-block; }
-    .upload-label:hover { text-decoration: underline; }
-    
-    .progress-bar-bg { width: 100%; background: #0f172a; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.05); }
-    .progress-bar-fill { width: 0%; height: 100%; background: #4ade80; transition: width 0.3s ease; }
-  </style>
+  <link rel="stylesheet" href="firmware.css">
 </head>
 <body>
 
@@ -104,85 +70,6 @@
 
     </div>
   </div>
-
-  <!-- Script -->
-  <script>
-    let selectedFile = null;
-
-    function handleFileSelect(e) {
-      const file = e.target.files[0];
-      const uploadBtn = document.getElementById('uploadBtn');
-      const fileName = document.getElementById('fileName');
-
-      if (file) {
-        selectedFile = file;
-        fileName.innerText = `Selected: ${file.name}`;
-        fileName.style.color = '#4ade80';
-        uploadBtn.disabled = false;
-      }
-    }
-
-    function checkForUpdates(btn) {
-      btn.innerText = 'Checking...';
-      btn.disabled = true;
-
-      setTimeout(() => {
-        btn.innerText = 'Check for Updates';
-        btn.disabled = false;
-        alert('System is already up to date! (v2.5.3)');
-      }, 1500);
-    }
-
-    function startFlashing() {
-      const isSimOn = localStorage.getItem('simulatedMode') === 'true' || localStorage.getItem('systemStatus') === 'online';
-      
-      if (!isSimOn) {
-        alert('System Offline hai! Pehle Dashboard se Online karein.');
-        return;
-      }
-
-      const progressContainer = document.getElementById('progressContainer');
-      const progressBar = document.getElementById('progressBar');
-      const flashPercent = document.getElementById('flashPercent');
-      const flashStatusText = document.getElementById('flashStatusText');
-      const uploadBtn = document.getElementById('uploadBtn');
-
-      progressContainer.style.display = 'block';
-      uploadBtn.disabled = true;
-
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        progressBar.style.width = progress + '%';
-        flashPercent.innerText = progress + '%';
-
-        if (progress === 20) flashStatusText.innerText = 'Erasing flash memory...';
-        if (progress === 50) flashStatusText.innerText = 'Writing binary blocks to ESP32...';
-        if (progress === 80) flashStatusText.innerText = 'Verifying checksum...';
-
-        if (progress >= 100) {
-          clearInterval(interval);
-          flashStatusText.innerText = '✅ Flashing Completed Successfully!';
-          flashStatusText.style.color = '#4ade80';
-        }
-      }, 400);
-    }
-
-    function syncFirmwarePage() {
-      const isSimOn = localStorage.getItem('simulatedMode') === 'true' || localStorage.getItem('systemStatus') === 'online';
-      const statusTag = document.getElementById('status-pill') || document.getElementById('status-tag');
-
-      if (statusTag) {
-        statusTag.innerHTML = isSimOn ? '🟢 Online' : '🔴 Offline';
-        statusTag.style.color = isSimOn ? '#4ade80' : '#f87171';
-        statusTag.style.backgroundColor = isSimOn ? '#143823' : '#1e293b';
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', syncFirmwarePage);
-    window.addEventListener('storage', syncFirmwarePage);
-    setInterval(syncFirmwarePage, 1000);
-    syncFirmwarePage();
-  </script>
+  <script src="firmware.js"></script>
 </body>
 </html>
