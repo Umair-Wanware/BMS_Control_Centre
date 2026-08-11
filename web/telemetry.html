@@ -192,19 +192,19 @@
       
       <div class="card">
         <div class="card-title">Battery Voltage</div>
-        <div class="card-value">12.53 V</div>
+        <div class="card-value" id="volt-val">12.53 V</div>
         <div class="card-subtitle">Range: 10.0 - 15.0 V</div>
       </div>
 
       <div class="card">
         <div class="card-title">Battery Current</div>
-        <div class="card-value">2.31 A</div>
+        <div class="card-value" id="curr-val">2.31 A</div>
         <div class="card-subtitle">Discharging</div>
       </div>
 
       <div class="card">
         <div class="card-title">Temperature</div>
-        <div class="card-value">31.2 °C</div>
+        <div class="card-value" id="temp-val">31.2 °C</div>
         <div class="card-subtitle">Range: 0 - 60 °C</div>
       </div>
 
@@ -293,18 +293,7 @@
       syncSimMode();
     }
   });
-function updateStatus() {
-  let statusTag = document.getElementById('status-pill');
-  let isSimOn = localStorage.getItem('simulatedMode') === 'true';
-
-  if (statusTag) {
-    if (isSimOn) {
-      statusTag.innerHTML = '🟢 Online';
-    } else {
-      statusTag.innerHTML = '🔴 Offline';
-    }
-  }
-}
+let simInterval = null;
 
   function updateStatus() {
     let statusTag = document.getElementById('status-pill');
@@ -313,12 +302,40 @@ function updateStatus() {
     if (statusTag) {
       if (isSimOn) {
         statusTag.innerHTML = '🟢 Online';
+        startTelemetrySim();
       } else {
         statusTag.innerHTML = '🔴 Offline';
+        stopTelemetrySim();
       }
     }
   }
+
+  function startTelemetrySim() {
+    if (simInterval) return;
+    simInterval = setInterval(() => {
+      let voltage = (12.30 + Math.random() * 0.4).toFixed(2);
+      let current = (2.10 + Math.random() * 0.5).toFixed(2);
+      let temp = (30.8 + Math.random() * 1.2).toFixed(1);
+
+      let vCard = document.querySelector('.voltage-value') || document.getElementById('volt-val');
+      let cCard = document.querySelector('.current-value') || document.getElementById('curr-val');
+      let tCard = document.querySelector('.temp-value') || document.getElementById('temp-val');
+
+      if (vCard) vCard.innerText = voltage + " V";
+      if (cCard) cCard.innerText = current + " A";
+      if (tCard) tCard.innerText = temp + " °C";
+    }, 1000);
+  }
+
+  function stopTelemetrySim() {
+    if (simInterval) {
+      clearInterval(simInterval);
+      simInterval = null;
+    }
+  }
+
   updateStatus();
+  window.addEventListener('storage', updateStatus);
 </script>
 </body>
 </html>

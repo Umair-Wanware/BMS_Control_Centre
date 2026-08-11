@@ -205,7 +205,7 @@
       </div>
 
       <div class="top-tags">
-        <span id="status-tag" class="tag">🔴 Offline</span>
+        <span id="status-pill" class="tag">🔴 Offline</span>
         <span class="tag">BMS Parameter Setup</span>
       </div>
     </div>
@@ -286,73 +286,50 @@
   </script>
 <!-- Baki Pages (e.g. telemetry.html / charts.html / logs.html) Script -->
 <script>
-  let pageSimInterval = null;
+function syncSimMode() {
+  const isSimOn = localStorage.getItem('simulatedMode') === 'true';
+  const statusTag = document.getElementById('status-pill');
+  const saveBtn = document.querySelector('button'); 
+  const inputs = document.querySelectorAll('input, select'); 
 
-  // Har page ke apne custom updates yahan likhein (e.g. Logs update, Charts update)
-  function updatePageData() {
-    // Example: Agar ye Telemetry / Chart page hai toh graphs re-render honge
-    console.log("Simulated Data Updating...");
-
-    // Aapka page-specific update code yahan aayega
-    if (typeof drawGraphs === 'function') drawGraphs();
+  // 1. Status tag update (🟢 Online / 🔴 Offline)
+  if (statusTag) {
+    statusTag.innerHTML = isSimOn ? '🟢 Online' : '🔴 Offline';
   }
 
-  function startSimulation() {
-    if (!pageSimInterval) {
-      pageSimInterval = setInterval(updatePageData, 500); // 500ms par update
+  // 2. Form Inputs aur Save Button disable/enable control
+  if (isSimOn) {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = "1";
+      saveBtn.style.cursor = "pointer";
     }
+    inputs.forEach(input => {
+      input.disabled = false;
+      input.style.opacity = "1";
+    });
+  } else {
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.style.opacity = "0.5";
+      saveBtn.style.cursor = "not-allowed";
+    }
+    inputs.forEach(input => {
+      input.disabled = true;
+      input.style.opacity = "0.5";
+    });
   }
+}
 
-  function stopSimulation() {
-    if (pageSimInterval) {
-      clearInterval(pageSimInterval);
-      pageSimInterval = null; // Freeze data
-    }
-  }
+// 1. Page load hone par sync karo
+window.addEventListener('DOMContentLoaded', syncSimMode);
 
-  // UI aur Simulation Sync Control
-  function syncSimMode() {
-    const isSimOn = localStorage.getItem('simulatedMode') === 'true';
-    const btn = document.getElementById('sim-mode-btn');
-
-    if (btn) {
-      if (isSimOn) {
-        btn.innerText = 'Simulated Mode: On';
-        btn.style.backgroundColor = '#083c5a';
-        btn.style.color = '#38bdf8';
-        btn.style.borderColor = '#162646';
-      } else {
-        btn.innerText = 'Simulated Mode: Off';
-        btn.style.backgroundColor = '#1e293b';
-        btn.style.color = '#94a3b8';
-        btn.style.borderColor = '#334155';
-      }
-    }
-
-    // On hone par run karo, Off hone par freeze
-    if (isSimOn) {
-      startSimulation();
-    } else {
-      stopSimulation();
-    }
-  }
-
-  // Toggle Function (Button click karne par)
-  function toggleSimulatedMode() {
-    let isSimOn = localStorage.getItem('simulatedMode') === 'true';
-    localStorage.setItem('simulatedMode', (!isSimOn).toString());
+// 2. Dashboard se toggle hone par sync karo
+window.addEventListener('storage', (e) => {
+  if (e.key === 'simulatedMode') {
     syncSimMode();
   }
-
-  // 1. Page Load hote hi status check karo
-  window.addEventListener('DOMContentLoaded', syncSimMode);
-
-  // 2. Dusre Tab ya Window me change hone par automatic sync
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'simulatedMode') {
-      syncSimMode();
-    }
-  });
+});
 </script>
 </body>
 </html>

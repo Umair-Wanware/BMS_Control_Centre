@@ -227,7 +227,7 @@
       </div>
 
       <div class="top-tags">
-        <span id="status-tag" class="tag">🔴 Offline</span>
+        <span id="status-pill" class="tag">🔴 Offline</span>
         <span class="tag">Live Telemetry Graph</span>
       </div>
     </div>
@@ -319,7 +319,34 @@
 <!-- Baki Pages (e.g. telemetry.html / charts.html / logs.html) Script -->
 <script>
   let pageSimInterval = null;
+let phase = 0; // Wave animation ke liye
 
+function drawGraphs() {
+  phase += 0.2;
+
+  // 1. Blue aur Green Lines ko wave ki tarah move karne ka logic
+  const paths = document.querySelectorAll('.svg-container path');
+  if (paths.length >= 2) {
+    let v1 = 100 + Math.sin(phase) * 20;
+    let v2 = 60 + Math.cos(phase) * 20;
+    let v3 = 90 + Math.sin(phase + 1) * 20;
+    paths[0].setAttribute('d', `M0,${v1.toFixed(1)} Q60,${v2.toFixed(1)} 120,${v1.toFixed(1)} T240,${v2.toFixed(1)} T360,${v3.toFixed(1)} T500,50`);
+
+    let c1 = 150 + Math.cos(phase) * 15;
+    let c2 = 120 + Math.sin(phase) * 15;
+    let c3 = 140 + Math.cos(phase + 1) * 15;
+    paths[1].setAttribute('d', `M0,${c1.toFixed(1)} Q60,${c2.toFixed(1)} 120,${c1.toFixed(1)} T240,${c2.toFixed(1)} T360,${c3.toFixed(1)} T500,110`);
+  }
+
+  // 2. Bars (Temperature aur State of Charge) ko upar-neeche hilaane ka logic
+  const bars = document.querySelectorAll('.bar');
+  bars.forEach((bar, i) => {
+    let base = 60 + (i % 5) * 7;
+    let val = Math.min(98, Math.max(30, base + Math.sin(phase + i) * 12));
+    bar.style.height = `${val.toFixed(0)}%`;
+    bar.style.transition = 'height 0.4s ease'; // Smooth animation
+  });
+}
   // Har page ke apne custom updates yahan likhein (e.g. Logs update, Charts update)
   function updatePageData() {
     // Example: Agar ye Telemetry / Chart page hai toh graphs re-render honge
@@ -343,31 +370,32 @@
   }
 
   // UI aur Simulation Sync Control
-  function syncSimMode() {
-    const isSimOn = localStorage.getItem('simulatedMode') === 'true';
-    const btn = document.getElementById('sim-mode-btn');
+ function syncSimMode() {
+  const isSimOn = localStorage.getItem('simulatedMode') === 'true';
+  const statusTag = document.getElementById('status-pill');
 
-    if (btn) {
-      if (isSimOn) {
-        btn.innerText = 'Simulated Mode: On';
-        btn.style.backgroundColor = '#083c5a';
-        btn.style.color = '#38bdf8';
-        btn.style.borderColor = '#162646';
-      } else {
-        btn.innerText = 'Simulated Mode: Off';
-        btn.style.backgroundColor = '#1e293b';
-        btn.style.color = '#94a3b8';
-        btn.style.borderColor = '#334155';
-      }
-    }
-
-    // On hone par run karo, Off hone par freeze
+  // Status tag update
+  if (statusTag) {
     if (isSimOn) {
-      startSimulation();
+      statusTag.innerHTML = '🟢 Online';
     } else {
-      stopSimulation();
+      statusTag.innerHTML = '🔴 Offline';
     }
   }
+
+  // Live simulation control
+  if (isSimOn) {
+    startSimulation();
+  } else {
+    stopSimulation();
+  }
+}
+
+// Page load hone par sync karega
+syncSimMode();
+
+// Dashboard toggle par sync karega
+window.addEventListener('storage', syncSimMode);  
 
   // Toggle Function (Button click karne par)
   function toggleSimulatedMode() {
