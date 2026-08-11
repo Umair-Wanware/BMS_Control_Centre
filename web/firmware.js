@@ -77,7 +77,7 @@ function syncFirmwarePage() {
     statusTag.style.backgroundColor = isSimOn ? '#143823' : '#1e293b';
   }
 }
-
+document.getElementById('stm').innerHTML="Select a .bin file to flash new firmware to STM32."
 document.addEventListener('DOMContentLoaded', syncFirmwarePage);
 window.addEventListener('storage', syncFirmwarePage);
 setInterval(syncFirmwarePage, 1000);

@@ -12,7 +12,6 @@
 
 import re
 import sys
-import os
 
 # NOTE the use of macros here helps keep a consistent stack depth which
 # tools may rely on.
