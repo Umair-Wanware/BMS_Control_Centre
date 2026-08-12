@@ -49,6 +49,28 @@ public:
     /** Atomically replaces a file's contents. */
     esp_err_t writeFile(const char* relativePath, const uint8_t* data, size_t length) const;
 
+    /** Opaque handle for chunked file writes without loading the full payload into RAM. */
+    struct StreamingWriteHandle {
+        void* file = nullptr;
+        std::string tempPath;
+        std::string finalPath;
+        bool active = false;
+    };
+
+    /** Opens a temporary file for chunked writing. */
+    esp_err_t beginStreamingWrite(const char* relativePath,
+                                    StreamingWriteHandle& handle) const;
+
+    /** Appends one chunk to an open streaming write. */
+    esp_err_t appendStreamingWrite(StreamingWriteHandle& handle, const uint8_t* data,
+                                   size_t length) const;
+
+    /** Renames the temporary file to its final path. */
+    esp_err_t finishStreamingWrite(StreamingWriteHandle& handle) const;
+
+    /** Discards an in-progress streaming write. */
+    esp_err_t abortStreamingWrite(StreamingWriteHandle& handle) const;
+
     /** Removes a file when it exists. */
     esp_err_t removeFile(const char* relativePath) const;
 

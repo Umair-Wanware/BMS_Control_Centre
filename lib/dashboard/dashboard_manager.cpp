@@ -4,811 +4,306 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 
+#include <algorithm>
 #include <stdio.h>
 #include <inttypes.h>
+#include <string.h>
+#include <vector>
+
+namespace {
+
+const char* TAG = "Dashboard";
+
+constexpr size_t kStaticFileChunkSize = 4096U;
+
+const char* firmwareStateToString(const control_hub::updater::FirmwareUpdateState state) noexcept
+{
+    switch (state) {
+        case control_hub::updater::FirmwareUpdateState::Idle:
+            return "Idle";
+        case control_hub::updater::FirmwareUpdateState::CalculatingChecksum:
+            return "CalculatingChecksum";
+        case control_hub::updater::FirmwareUpdateState::Starting:
+            return "Starting";
+        case control_hub::updater::FirmwareUpdateState::Transferring:
+            return "Transferring";
+        case control_hub::updater::FirmwareUpdateState::Verifying:
+            return "Verifying";
+        case control_hub::updater::FirmwareUpdateState::Complete:
+            return "Complete";
+        case control_hub::updater::FirmwareUpdateState::Failed:
+            return "Failed";
+        case control_hub::updater::FirmwareUpdateState::Cancelled:
+            return "Cancelled";
+        default:
+            return "Unknown";
+    }
+}
+
+const char* contentTypeForPath(const char* path) noexcept
+{
+    const char* extension = strrchr(path, '.');
+    if (extension == nullptr) {
+        return "application/octet-stream";
+    }
+
+    if (strcmp(extension, ".html") == 0) {
+        return "text/html";
+    }
+    if (strcmp(extension, ".css") == 0) {
+        return "text/css";
+    }
+    if (strcmp(extension, ".js") == 0) {
+        return "application/javascript";
+    }
+    if (strcmp(extension, ".json") == 0) {
+        return "application/json";
+    }
+    if (strcmp(extension, ".svg") == 0) {
+        return "image/svg+xml";
+    }
+    if (strcmp(extension, ".png") == 0) {
+        return "image/png";
+    }
+    if (strcmp(extension, ".ico") == 0) {
+        return "image/x-icon";
+    }
+
+    return "application/octet-stream";
+}
+
+void setApiCorsHeaders(httpd_req_t* request)
+{
+    httpd_resp_set_hdr(request, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_hdr(request, "Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    httpd_resp_set_hdr(request, "Access-Control-Allow-Headers", "Content-Type");
+}
+
+control_hub::dashboard::DashboardManager* managerFromRequest(httpd_req_t* request)
+{
+    if (request == nullptr || request->handle == nullptr) {
+        return nullptr;
+    }
+
+    return static_cast<control_hub::dashboard::DashboardManager*>(
+        httpd_get_global_user_ctx(request->handle));
+}
+
+} // namespace
 
 namespace control_hub::dashboard
 {
 
-static const char *TAG = "Dashboard";
-
 bool DashboardManager::Init()
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-
     config.server_port = 80;
+    config.max_uri_handlers = 12U;
+    config.stack_size = 10240U;
+    config.recv_wait_timeout = 60U;
+    config.lru_purge_enable = true;
+    config.max_open_sockets = 7U;
+    config.global_user_ctx = this;
 
-    if (httpd_start(&server, &config) != ESP_OK)
-    {
+    if (httpd_start(&server, &config) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start HTTP server");
         return false;
     }
 
-    httpd_uri_t index =
-    {
-        .uri = "/",
-        .method = HTTP_GET,
-        .handler = IndexHandler,
-        .user_ctx = this
+    if (httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, NotFoundHandler) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register 404 handler");
+        return false;
+    }
+
+    const httpd_uri_t routes[] = {
+        {"/api/health", HTTP_GET, HealthHandler, this},
+        {"/api/telemetry", HTTP_GET, TelemetryHandler, this},
+        {"/api/firmware", HTTP_GET, FirmwareStatusHandler, this},
+        {"/api/firmware/upload", HTTP_POST, UploadFirmwareHandler, this},
+        {"/api/firmware/upload", HTTP_OPTIONS, CorsPreflightHandler, this},
+        {"/api/firmware/start", HTTP_POST, StartFirmwareUpdateHandler, this},
+        {"/api/firmware/start", HTTP_OPTIONS, CorsPreflightHandler, this},
+        {"/", HTTP_GET, IndexHandler, this},
     };
 
-    httpd_register_uri_handler(server, &index);
+    for (const httpd_uri_t& route : routes) {
+        if (httpd_register_uri_handler(server, &route) != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to register handler for %s", route.uri);
+            return false;
+        }
+    }
 
-    httpd_uri_t telemetry =
-    {
-        .uri = "/api/telemetry",
-        .method = HTTP_GET,
-        .handler = TelemetryHandler,
-        .user_ctx = this
-    };
-
-    httpd_register_uri_handler(server, &telemetry);
-
-    ESP_LOGI(TAG, "Dashboard Started");
-
+    ESP_LOGI(TAG, "HTTP server ready on port 80");
+    ESP_LOGI(TAG, "Dashboard: http://192.168.4.1/  (AP mode) or device IP (STA mode)");
+    ESP_LOGI(TAG, "Health check: http://192.168.4.1/api/health");
     return true;
+}
+
+esp_err_t DashboardManager::CorsPreflightHandler(httpd_req_t *request)
+{
+    setApiCorsHeaders(request);
+    httpd_resp_set_hdr(request, "Access-Control-Max-Age", "3600");
+    return httpd_resp_send(request, nullptr, 0);
 }
 
 void DashboardManager::Stop()
 {
-    if(server != nullptr)
-    {
+    if (server != nullptr) {
         httpd_stop(server);
         server = nullptr;
     }
 }
 
+esp_err_t DashboardManager::serveEmbeddedAsset(httpd_req_t* request, const EmbeddedAsset* asset)
+{
+    if (asset == nullptr) {
+        httpd_resp_set_status(request, "404 Not Found");
+        return httpd_resp_sendstr(request, "Not found");
+    }
+
+    httpd_resp_set_type(request, asset->contentType);
+
+    size_t offset = 0U;
+    while (offset < asset->size) {
+        const size_t chunkSize = std::min(kStaticFileChunkSize, asset->size - offset);
+        const esp_err_t sendResult =
+            httpd_resp_send_chunk(request, asset->content + offset, chunkSize);
+        if (sendResult != ESP_OK) {
+            return sendResult;
+        }
+        offset += chunkSize;
+    }
+
+    return httpd_resp_send_chunk(request, nullptr, 0);
+}
+
+esp_err_t DashboardManager::serveStaticFile(httpd_req_t* request,
+                                            drivers::filesystem::FileSystemManager* fileSystem,
+                                            const char* relativePath)
+{
+    if (relativePath == nullptr || relativePath[0] != '/') {
+        httpd_resp_set_status(request, "404 Not Found");
+        return httpd_resp_sendstr(request, "Not found");
+    }
+
+    const EmbeddedAsset* embeddedAsset = findEmbeddedAsset(relativePath);
+    if (embeddedAsset != nullptr) {
+        return serveEmbeddedAsset(request, embeddedAsset);
+    }
+
+    if (fileSystem != nullptr && fileSystem->isMounted()) {
+        size_t fileSize = 0U;
+        if (fileSystem->getFileSize(relativePath, fileSize) == ESP_OK && fileSize > 0U) {
+            httpd_resp_set_type(request, contentTypeForPath(relativePath));
+
+            std::vector<uint8_t> buffer(kStaticFileChunkSize);
+            size_t offset = 0U;
+            while (offset < fileSize) {
+                size_t bytesRead = 0U;
+                const size_t requested = std::min(buffer.size(), fileSize - offset);
+                const esp_err_t readResult = fileSystem->readFileChunk(
+                    relativePath, offset, buffer.data(), requested, bytesRead);
+                if (readResult != ESP_OK || bytesRead == 0U) {
+                    httpd_resp_set_status(request, "500 Internal Server Error");
+                    return httpd_resp_sendstr(request, "Read failed");
+                }
+
+                const esp_err_t sendResult = httpd_resp_send_chunk(
+                    request, reinterpret_cast<const char*>(buffer.data()), bytesRead);
+                if (sendResult != ESP_OK) {
+                    return sendResult;
+                }
+
+                offset += bytesRead;
+            }
+
+            return httpd_resp_send_chunk(request, nullptr, 0);
+        }
+    }
+
+    httpd_resp_set_status(request, "404 Not Found");
+    return httpd_resp_sendstr(request, "Not found");
+}
+
 esp_err_t DashboardManager::IndexHandler(httpd_req_t *request)
 {
-    static const char page[] =
-R"rawliteral(
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BMS Control Centre</title>
-<style>
-:root {
-  color-scheme: dark;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #e9eef7;
-  background: #0b1119;
-}
-* {
-  box-sizing: border-box;
-}
-html, body {
-  margin: 0;
-  min-height: 100%;
-}
-body {
-  background: radial-gradient(circle at 10% 10%, rgba(76, 210, 120, 0.12), transparent 24%),
-              radial-gradient(circle at 90% 10%, rgba(118, 123, 255, 0.14), transparent 28%),
-              linear-gradient(180deg, #0a0f17 0%, #09101a 100%);
-}
-.page-shell {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 20px;
-  padding: 24px;
-  max-width: 1680px;
-  margin: 0 auto;
-}
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.brand,
-.status-card,
-.panel,
-.sidebar-menu,
-.sidebar-quick {
-  background: rgba(18, 25, 34, 0.92);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 24px;
-  padding: 22px;
-}
-.brand {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-.brand-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #4cd288, #2cacff);
-  box-shadow: 0 14px 30px rgba(76, 210, 136, 0.18);
-}
-.brand-icon span {
-  font-size: 1.5rem;
-}
-.brand-title h1 {
-  margin: 0;
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
-}
-.brand-title p {
-  margin: 4px 0 0;
-  color: #94a7c4;
-  font-size: 0.9rem;
-}
-.sidebar-menu {
-  display: grid;
-  gap: 10px;
-}
-.nav-item {
-  appearance: none;
-  border: none;
-  border-radius: 18px;
-  background: rgba(255,255,255,0.03);
-  color: #dbe5f6;
-  padding: 14px 18px;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-.nav-item:hover,
-.nav-item.active {
-  background: rgba(76, 210, 136, 0.14);
-  transform: translateX(2px);
-}
-.status-card h2,
-.panel h2,
-.panel h3 {
-  margin: 0 0 14px;
-  color: #f8fbff;
-}
-.status-list,
-.device-list,
-.fault-list,
-.event-list,
-.cell-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.status-list li,
-.device-list li,
-.fault-list li,
-.event-list li,
-.cell-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  color: #a4b5cd;
-}
-.status-list li:last-child,
-.device-list li:last-child,
-.fault-list li:last-child,
-.event-list li:last-child,
-.cell-list li:last-child {
-  margin-bottom: 0;
-}
-.status-badge {
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 0.84rem;
-  background: rgba(76, 210, 136, 0.15);
-  color: #7ef392;
-}
-.status-badge.offline {
-  background: rgba(255, 72, 66, 0.12);
-  color: #ff8c7a;
-}
-.main-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.topheader {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  align-items: flex-start;
-}
-.topheader-left {
-  display: grid;
-  gap: 12px;
-}
-.page-title {
-  margin: 0;
-  font-size: 1.65rem;
-}
-.page-subtitle {
-  margin: 0;
-  color: #9ab1d1;
-}
-.top-controls {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: 18px;
-  background: rgba(255,255,255,0.04);
-  color: #d6e0f3;
-  font-size: 0.9rem;
-}
-.indicator::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #4cd288;
-}
-.indicator.offline {
-  color: #ffb2a0;
-}
-.indicator.offline::before {
-  background: #ff6d6d;
-}
-.sim-toggle {
-  appearance: none;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 999px;
-  background: rgba(255,255,255,0.04);
-  color: #eef4ff;
-  padding: 12px 20px;
-  cursor: pointer;
-  min-width: 170px;
-}
-.sim-toggle.active {
-  border-color: rgba(76, 210, 136, 0.35);
-  background: rgba(76, 210, 136, 0.12);
-}
-.top-widgets {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-}
-.card-widget {
-  background: rgba(20, 28, 41, 0.94);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 24px;
-  padding: 22px;
-}
-.card-widget small {
-  color: #7f99b6;
-}
-.card-widget .widget-value {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-  font-size: 2rem;
-  font-weight: 700;
-}
-.card-widget .widget-value span {
-  color: #77ceff;
-}
-.widget-progress {
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.07);
-  margin-top: 12px;
-  overflow: hidden;
-}
-.widget-progress::after {
-  content: '';
-  display: block;
-  width: var(--progress, 0%);
-  height: 100%;
-  background: linear-gradient(90deg, #7b3fff, #4cd287);
-}
-.grid {
-  display: grid;
-  grid-template-columns: 1.8fr 1fr;
-  gap: 20px;
-}
-.grid .panel {
-  background: rgba(16, 24, 38, 0.96);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 26px;
-  padding: 22px;
-}
-.chart-header,
-.panel .subtle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  color: #92a6cc;
-}
-.chart-header select,
-.panel button {
-  appearance: none;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 999px;
-  background: rgba(255,255,255,0.04);
-  color: inherit;
-  padding: 10px 14px;
-}
-#telemetry-graph {
-  width: 100%;
-  height: 220px;
-  margin-top: 18px;
-  border-radius: 20px;
-  background: radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 32%),
-              rgba(14, 20, 33, 0.85);
-}
-.device-list dt,
-.fault-list dt {
-  font-size: 0.93rem;
-  color: #8ca1c8;
-}
-.fault-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: rgba(255,255,255,0.04);
-}
-.fault-item.ok {
-  border-left: 3px solid #4cd288;
-}
-.fault-item.warn {
-  border-left: 3px solid #f4d84f;
-}
-.fault-item.error {
-  border-left: 3px solid #ff7c74;
-}
-.event-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: rgba(255,255,255,0.03);
-}
-.event-list li span {
-  color: #8eadd4;
-}
-.overline {
-  color: #7d96bd;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 0.76rem;
-  margin-bottom: 10px;
-}
-.metric-count {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #d7e5ff;
-}
-.panel-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-.powerchip {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-}
-.powerchip span {
-  display: inline-flex;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #4cd288;
-}
-</style>
-</head>
-<body>
-<div class="page-shell">
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-icon"><span>🔋</span></div>
-      <div class="brand-title">
-        <h1>BMS Control Centre</h1>
-        <p>ESP32 Control Hub</p>
-      </div>
-    </div>
-
-    <div class="sidebar-menu">
-      <button class="nav-item active">Dashboard</button>
-      <button class="nav-item">Telemetry</button>
-      <button class="nav-item">Charts</button>
-      <button class="nav-item">Firmware Update</button>
-      <button class="nav-item">Configuration</button>
-      <button class="nav-item">Logs</button>
-      <button class="nav-item">Diagnostics</button>
-      <button class="nav-item">Settings</button>
-      <button class="nav-item">About</button>
-    </div>
-
-    <section class="status-card">
-      <h2>System Status</h2>
-      <ul class="status-list">
-        <li><span>ESP32</span><span class="status-badge">Online</span></li>
-        <li><span>STM32 BMS</span><span class="status-badge">Online</span></li>
-        <li><span>Last Update</span><span class="status-badge">12:30:45 PM</span></li>
-      </ul>
-    </section>
-  </aside>
-
-  <main class="main-content">
-    <section class="topheader">
-      <div class="topheader-left">
-        <p class="overline">Dashboard</p>
-        <h2 class="page-title">Live Battery Monitoring</h2>
-        <p class="page-subtitle">Track battery power, health, telemetry, and simulated mode quickly.</p>
-      </div>
-
-      <div class="top-controls">
-        <div class="indicator" id="connection-status">Connected</div>
-        <div class="indicator">Wi-Fi: Home_Network</div>
-        <div class="indicator" id="clock">12:30 PM</div>
-        <button class="sim-toggle" id="sim-toggle">Simulated Mode: <strong id="sim-state">Off</strong></button>
-      </div>
-    </section>
-
-    <section class="top-widgets">
-      <article class="card-widget">
-        <small>Battery Voltage</small>
-        <div class="widget-value"><span id="battery-voltage">--</span></div>
-        <p class="subtle">Range: 10.0 - 15.0 V</p>
-      </article>
-      <article class="card-widget">
-        <small>Battery Current</small>
-        <div class="widget-value"><span id="battery-current">--</span></div>
-        <p class="subtle">Discharging</p>
-      </article>
-      <article class="card-widget">
-        <small>Temperature</small>
-        <div class="widget-value"><span id="battery-temperature">--</span></div>
-        <p class="subtle">Range: 0 - 60 °C</p>
-      </article>
-      <article class="card-widget">
-        <small>State of Charge</small>
-        <div class="widget-value"><span id="battery-soc">--</span></div>
-        <div class="widget-progress" style="--progress: 0%"></div>
-      </article>
-      <article class="card-widget">
-        <small>Health</small>
-        <div class="widget-value"><span id="battery-health">--</span></div>
-        <p class="subtle">Very Good</p>
-        <div class="widget-progress" style="--progress: 95%"></div>
-      </article>
-      <article class="card-widget">
-        <small>Cycle Count</small>
-        <div class="widget-value"><span id="battery-cycles">--</span></div>
-      </article>
-    </section>
-
-    <section class="grid">
-      <div class="panel">
-        <div class="chart-header">
-          <h2>Live Telemetry</h2>
-          <select id="time-range">
-            <option>1 Minute</option>
-            <option>5 Minutes</option>
-            <option>1 Hour</option>
-          </select>
-        </div>
-        <canvas id="telemetry-graph"></canvas>
-      </div>
-
-      <div class="panel">
-        <h2>Device Information</h2>
-        <ul class="device-list">
-          <li><span>Device Name</span><span>STM32 BMS</span></li>
-          <li><span>Firmware Version</span><span>v1.0.3</span></li>
-          <li><span>Bootloader Version</span><span>v2.1.0</span></li>
-          <li><span>Hardware Version</span><span>REV B</span></li>
-          <li><span>Device ID</span><span>BMS-STM32-001</span></li>
-          <li><span>Uptime</span><span>2d 14h 23m 15s</span></li>
-          <li><span>Last Reset</span><span>Power On</span></li>
-        </ul>
-      </div>
-
-      <div class="panel">
-        <div class="chart-header">
-          <h2>Fault Status</h2>
-          <span class="status-badge">No Faults</span>
-        </div>
-        <div class="fault-item ok"><span>Over Voltage</span><strong>OK</strong></div>
-        <div class="fault-item ok"><span>Under Voltage</span><strong>OK</strong></div>
-        <div class="fault-item ok"><span>Over Current</span><strong>OK</strong></div>
-        <div class="fault-item ok"><span>Over Temperature</span><strong>OK</strong></div>
-        <div class="fault-item ok"><span>Short Circuit</span><strong>OK</strong></div>
-        <div class="fault-item ok"><span>Cell Imbalance</span><strong>OK</strong></div>
-      </div>
-
-      <div class="panel">
-        <h2>Cell Voltages</h2>
-        <ul class="cell-list">
-          <li><span>Cell 1</span><span id="cell-1">-- V</span></li>
-          <li><span>Cell 2</span><span id="cell-2">-- V</span></li>
-          <li><span>Cell 3</span><span id="cell-3">-- V</span></li>
-          <li><span>Cell 4</span><span id="cell-4">-- V</span></li>
-        </ul>
-      </div>
-
-      <div class="panel">
-        <h2>SOC Over Time</h2>
-        <canvas id="soc-trend" style="width:100%; height:160px; border-radius:20px; background: rgba(255,255,255,0.03);"></canvas>
-      </div>
-
-      <div class="panel">
-        <h2>Recent Events</h2>
-        <ul class="event-list">
-          <li><span>System started</span><span>May 24, 2025 12:30:10 PM</span></li>
-          <li><span>Telemetry stream connected</span><span>May 24, 2025 12:30:09 PM</span></li>
-          <li><span>Configuration updated</span><span>May 24, 2025 12:29:02 PM</span></li>
-          <li><span>Firmware update completed</span><span>May 24, 2025 10:15:33 AM</span></li>
-          <li><span>Over temperature warning</span><span>May 24, 2025 09:12:11 AM</span></li>
-        </ul>
-      </div>
-    </section>
-
-  </main>
-</div>
-<script>
-const state = {
-  simulated: false,
-  connected: true,
-  telemetry: {
-    voltage: 12.53,
-    current: 2.31,
-    temperature: 31.2,
-    soc: 87,
-    health: 95,
-    cycleCount: 128,
-    cellVoltages: [3.132, 3.128, 3.122, 3.127]
-  },
-  history: {
-    voltage: [],
-    current: [],
-    temperature: [],
-    soc: []
-  }
-};
-
-const elements = {
-  batteryVoltage: document.getElementById('battery-voltage'),
-  batteryCurrent: document.getElementById('battery-current'),
-  batteryTemperature: document.getElementById('battery-temperature'),
-  batterySoc: document.getElementById('battery-soc'),
-  batteryHealth: document.getElementById('battery-health'),
-  batteryCycles: document.getElementById('battery-cycles'),
-  cell1: document.getElementById('cell-1'),
-  cell2: document.getElementById('cell-2'),
-  cell3: document.getElementById('cell-3'),
-  cell4: document.getElementById('cell-4'),
-  simState: document.getElementById('sim-state'),
-  simToggle: document.getElementById('sim-toggle'),
-  connectionStatus: document.getElementById('connection-status'),
-  clock: document.getElementById('clock'),
-  graph: document.getElementById('telemetry-graph'),
-  socTrend: document.getElementById('soc-trend')
-};
-
-function formatNumber(value, digits) {
-  return value.toFixed(digits);
-}
-
-function updateClock() {
-  const now = new Date();
-  elements.clock.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-function renderTelemetry() {
-  elements.batteryVoltage.textContent = `${formatNumber(state.telemetry.voltage, 2)} V`;
-  elements.batteryCurrent.textContent = `${formatNumber(state.telemetry.current, 2)} A`;
-  elements.batteryTemperature.textContent = `${formatNumber(state.telemetry.temperature, 1)} °C`;
-  elements.batterySoc.textContent = `${Math.round(state.telemetry.soc)}%`;
-  elements.batteryHealth.textContent = `${Math.round(state.telemetry.health)}%`;
-  elements.batteryCycles.textContent = `${state.telemetry.cycleCount}`;
-  elements.cell1.textContent = `${formatNumber(state.telemetry.cellVoltages[0], 3)} V`;
-  elements.cell2.textContent = `${formatNumber(state.telemetry.cellVoltages[1], 3)} V`;
-  elements.cell3.textContent = `${formatNumber(state.telemetry.cellVoltages[2], 3)} V`;
-  elements.cell4.textContent = `${formatNumber(state.telemetry.cellVoltages[3], 3)} V`;
-  state.history.voltage.push(state.telemetry.voltage);
-  state.history.current.push(state.telemetry.current);
-  state.history.temperature.push(state.telemetry.temperature);
-  state.history.soc.push(state.telemetry.soc);
-  if (state.history.voltage.length > 24) state.history.voltage.shift();
-  if (state.history.current.length > 24) state.history.current.shift();
-  if (state.history.temperature.length > 24) state.history.temperature.shift();
-  if (state.history.soc.length > 24) state.history.soc.shift();
-}
-
-function updateVisualState() {
-  elements.simState.textContent = state.simulated ? 'On' : 'Off';
-  elements.simToggle.classList.toggle('active', state.simulated);
-  elements.connectionStatus.textContent = state.connected ? 'Connected' : 'Offline';
-  elements.connectionStatus.classList.toggle('offline', !state.connected);
-}
-
-function drawChart() {
-  const canvas = elements.graph;
-  if (!canvas || !canvas.getContext) return;
-  const width = canvas.offsetWidth;
-  const height = canvas.offsetHeight;
-  canvas.width = width * devicePixelRatio;
-  canvas.height = height * devicePixelRatio;
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.scale(devicePixelRatio, devicePixelRatio);
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = 'rgba(255,255,255,0.04)';
-  ctx.fillRect(0, 0, width, height);
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const y = height * i / 4;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-  const data = [
-    { values: state.history.voltage, color: '#4cd288' },
-    { values: state.history.current.map(v => v * 3.5), color: '#4d90ff' },
-    { values: state.history.temperature.map(v => (v - 20) * 3), color: '#ff5b7c' }
-  ];
-  data.forEach(series => {
-    if (!series.values.length) return;
-    const max = Math.max(...series.values);
-    const min = Math.min(...series.values);
-    const range = Math.max(1, max - min);
-    ctx.strokeStyle = series.color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    series.values.forEach((value, index) => {
-      const x = (index / (series.values.length - 1 || 1)) * width;
-      const normalized = 1 - ((value - min) / range);
-      const y = normalized * (height - 20) + 10;
-      if (index === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  });
-}
-
-function drawSocTrend() {
-  const canvas = elements.socTrend;
-  if (!canvas || !canvas.getContext) return;
-  const width = canvas.offsetWidth;
-  const height = canvas.offsetHeight;
-  canvas.width = width * devicePixelRatio;
-  canvas.height = height * devicePixelRatio;
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.scale(devicePixelRatio, devicePixelRatio);
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = 'rgba(255,255,255,0.04)';
-  ctx.fillRect(0, 0, width, height);
-  if (!state.history.soc.length) return;
-  const max = 100;
-  const min = 0;
-  ctx.strokeStyle = '#b85bff';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  state.history.soc.forEach((value, index) => {
-    const x = (index / (state.history.soc.length - 1 || 1)) * width;
-    const normalized = 1 - ((value - min) / (max - min));
-    const y = normalized * (height - 20) + 10;
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-}
-
-function simulateTelemetry() {
-  const time = Date.now() / 1500;
-  state.telemetry.voltage = 12.4 + Math.sin(time) * 0.25 + Math.sin(time / 2) * 0.12;
-  state.telemetry.current = 2.1 + Math.cos(time * 1.2) * 0.18;
-  state.telemetry.temperature = 30 + Math.sin(time / 1.7) * 1.6;
-  state.telemetry.soc = 86 + Math.sin(time / 4) * 2.8;
-  state.telemetry.cellVoltages = [
-    3.12 + Math.sin(time + 0.3) * 0.01,
-    3.13 + Math.sin(time + 0.8) * 0.01,
-    3.11 + Math.sin(time + 1.3) * 0.01,
-    3.12 + Math.sin(time + 1.7) * 0.01
-  ];
-  state.telemetry.health = 95;
-  state.telemetry.cycleCount = 128;
-}
-
-async function refreshTelemetry() {
-  if (state.simulated) {
-    simulateTelemetry();
-    state.connected = true;
-  } else {
-    try {
-      const response = await fetch('/api/telemetry', { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error('Telemetry unavailable');
-      }
-      const payload = await response.json();
-      state.telemetry.voltage = typeof payload.voltage_mv === 'number' ? payload.voltage_mv / 1000 : state.telemetry.voltage;
-      state.telemetry.current = typeof payload.current_ma === 'number' ? payload.current_ma / 1000 : state.telemetry.current;
-      state.telemetry.temperature = typeof payload.temperature_centi_c === 'number' ? payload.temperature_centi_c / 100 : state.telemetry.temperature;
-      state.telemetry.soc = typeof payload.soc_tenths_percent === 'number' ? payload.soc_tenths_percent / 10 : state.telemetry.soc;
-      state.telemetry.cellVoltages = [
-        state.telemetry.voltage / 4,
-        state.telemetry.voltage / 4,
-        state.telemetry.voltage / 4,
-        state.telemetry.voltage / 4
-      ];
-      state.connected = true;
-    } catch (error) {
-      state.connected = false;
-      simulateTelemetry();
+    DashboardManager* manager = static_cast<DashboardManager*>(request->user_ctx);
+    if (manager == nullptr) {
+        httpd_resp_set_status(request, "500 Internal Server Error");
+        return httpd_resp_sendstr(request, "Server unavailable");
     }
-  }
-  renderTelemetry();
-  updateVisualState();
-  drawChart();
-  drawSocTrend();
+
+    return serveStaticFile(request, manager->m_fileSystem, "/index.html");
 }
 
-function refreshAll() {
-  updateClock();
-  refreshTelemetry();
+esp_err_t DashboardManager::NotFoundHandler(httpd_req_t *request, httpd_err_code_t error)
+{
+    if (error != HTTPD_404_NOT_FOUND) {
+        return ESP_FAIL;
+    }
+
+    DashboardManager* manager = managerFromRequest(request);
+    if (manager == nullptr || request->uri[0] == '\0') {
+        return httpd_resp_send_err(request, HTTPD_404_NOT_FOUND, "Not found");
+    }
+
+    if (strncmp(request->uri, "/api/", 5) == 0) {
+        return httpd_resp_send_err(request, HTTPD_404_NOT_FOUND, "Not found");
+    }
+
+    const esp_err_t result = serveStaticFile(request, manager->m_fileSystem, request->uri);
+    if (result == ESP_OK) {
+        return ESP_OK;
+    }
+
+    return httpd_resp_send_err(request, HTTPD_404_NOT_FOUND, "Not found");
 }
 
-elements.simToggle.addEventListener('click', () => {
-  state.simulated = !state.simulated;
-  updateVisualState();
-  refreshTelemetry();
-});
+esp_err_t DashboardManager::HealthHandler(httpd_req_t *request)
+{
+    DashboardManager* manager = static_cast<DashboardManager*>(request->user_ctx);
+    char json[160];
+    const bool filesystemReady =
+        manager != nullptr && manager->m_fileSystem != nullptr && manager->m_fileSystem->isMounted();
+    const bool telemetryReady = manager != nullptr && manager->m_telemetryManager != nullptr;
+    const bool updaterReady = manager != nullptr && manager->m_firmwareUpdater != nullptr;
+    bool telemetryValid = false;
 
-window.addEventListener('resize', () => {
-  drawChart();
-  drawSocTrend();
-});
+    if (telemetryReady) {
+        communication::TelemetryData data{};
+        telemetryValid = manager->m_telemetryManager->getLatest(data);
+    }
 
-updateVisualState();
-updateClock();
-refreshTelemetry();
-setInterval(() => {
-  updateClock();
-  refreshTelemetry();
-}, 2200);
-</script>
-</body>
-</html>
-)rawliteral";
+    snprintf(json,
+             sizeof(json),
+             "{\"status\":\"ok\",\"filesystem\":%s,\"telemetry_ready\":%s,"
+             "\"telemetry_valid\":%s,\"updater_ready\":%s,\"embedded_ui\":true}",
+             filesystemReady ? "true" : "false",
+             telemetryReady ? "true" : "false",
+             telemetryValid ? "true" : "false",
+             updaterReady ? "true" : "false");
 
-    httpd_resp_set_type(request, "text/html");
-
-    return httpd_resp_send(
-            request,
-            page,
-            HTTPD_RESP_USE_STRLEN);
+    httpd_resp_set_type(request, "application/json");
+    setApiCorsHeaders(request);
+    return httpd_resp_send(request, json, HTTPD_RESP_USE_STRLEN);
 }
 
 esp_err_t DashboardManager::TelemetryHandler(httpd_req_t *request)
 {
     DashboardManager* manager = static_cast<DashboardManager*>(request->user_ctx);
-    char json[192];
+    char json[256];
+    bool valid = false;
 
-    uint32_t voltage = 12450;
-    int32_t current = 1520;
-    int16_t temperature = 2810;
-    uint16_t soc = 820;
+    uint32_t voltage = 0U;
+    int32_t current = 0;
+    int16_t temperature = 0;
+    uint16_t soc = 0U;
     uint32_t faultFlags = 0U;
 
     if (manager != nullptr && manager->m_telemetryManager != nullptr) {
-        control_hub::communication::TelemetryData data{};
+        communication::TelemetryData data{};
         if (manager->m_telemetryManager->getLatest(data)) {
+            valid = true;
             voltage = data.voltageMillivolts;
             current = data.currentMilliamps;
             temperature = data.temperatureCentiDegreesCelsius;
@@ -819,11 +314,13 @@ esp_err_t DashboardManager::TelemetryHandler(httpd_req_t *request)
 
     snprintf(json,
              sizeof(json),
-             "{\"voltage_mv\":%" PRIu32 ","
+             "{\"valid\":%s,"
+             "\"voltage_mv\":%" PRIu32 ","
              "\"current_ma\":%" PRId32 ","
              "\"temperature_centi_c\":%" PRId16 ","
              "\"soc_tenths_percent\":%" PRIu16 ","
              "\"fault_flags\":%" PRIu32 "}",
+             valid ? "true" : "false",
              voltage,
              current,
              temperature,
@@ -831,11 +328,190 @@ esp_err_t DashboardManager::TelemetryHandler(httpd_req_t *request)
              faultFlags);
 
     httpd_resp_set_type(request, "application/json");
+    setApiCorsHeaders(request);
+    return httpd_resp_send(request, json, HTTPD_RESP_USE_STRLEN);
+}
 
-    return httpd_resp_send(
-            request,
-            json,
-            HTTPD_RESP_USE_STRLEN);
+esp_err_t DashboardManager::FirmwareStatusHandler(httpd_req_t *request)
+{
+    DashboardManager* manager = static_cast<DashboardManager*>(request->user_ctx);
+    char json[256];
+    const char* state = "Idle";
+    uint32_t progress = 0U;
+    bool running = false;
+
+    if (manager != nullptr && manager->m_firmwareUpdater != nullptr) {
+        const auto snapshot = manager->m_firmwareUpdater->progress();
+        state = firmwareStateToString(snapshot.state);
+        progress = snapshot.imageSizeBytes == 0U ? 0U :
+            (static_cast<uint32_t>((snapshot.transferredBytes * 100U) / snapshot.imageSizeBytes));
+        running = manager->m_firmwareUpdater->isRunning();
+    }
+
+    snprintf(json, sizeof(json),
+             "{\"state\":\"%s\",\"running\":%s,\"progress\":%" PRIu32 ",\"image_path\":\"/firmware.bin\"}",
+             state, running ? "true" : "false", progress);
+
+    httpd_resp_set_type(request, "application/json");
+    setApiCorsHeaders(request);
+    return httpd_resp_send(request, json, HTTPD_RESP_USE_STRLEN);
+}
+
+esp_err_t DashboardManager::UploadFirmwareHandler(httpd_req_t *request)
+{
+    DashboardManager* manager = static_cast<DashboardManager*>(request->user_ctx);
+    if (manager == nullptr || manager->m_fileSystem == nullptr || !manager->m_fileSystem->isMounted()) {
+        httpd_resp_set_type(request, "application/json");
+        httpd_resp_set_status(request, "503 Service Unavailable");
+        setApiCorsHeaders(request);
+        return httpd_resp_sendstr(request, "{\"error\":\"filesystem unavailable\"}");
+    }
+
+    size_t contentLength = request->content_len;
+    if (contentLength == 0U) {
+        char contentLengthHeader[32]{};
+        if (httpd_req_get_hdr_value_str(request, "Content-Length", contentLengthHeader,
+                                        sizeof(contentLengthHeader)) == ESP_OK) {
+            contentLength = static_cast<size_t>(strtoul(contentLengthHeader, nullptr, 10));
+        }
+    }
+
+    drivers::filesystem::FileSystemManager::StreamingWriteHandle writeHandle{};
+    esp_err_t writeResult = manager->m_fileSystem->beginStreamingWrite("/firmware.bin", writeHandle);
+    if (writeResult != ESP_OK) {
+        httpd_resp_set_type(request, "application/json");
+        httpd_resp_set_status(request, "500 Internal Server Error");
+        setApiCorsHeaders(request);
+        return httpd_resp_sendstr(request, "{\"error\":\"open failed\"}");
+    }
+
+    std::vector<uint8_t> buffer(4096U);
+    size_t totalReceived = 0U;
+
+    if (contentLength > 0U) {
+        while (totalReceived < contentLength) {
+            const size_t bytesToRead = std::min(buffer.size(), contentLength - totalReceived);
+            const int received =
+                httpd_req_recv(request, reinterpret_cast<char*>(buffer.data()), bytesToRead);
+            if (received <= 0) {
+                manager->m_fileSystem->abortStreamingWrite(writeHandle);
+                httpd_resp_set_type(request, "application/json");
+                httpd_resp_set_status(request, "400 Bad Request");
+                setApiCorsHeaders(request);
+                return httpd_resp_sendstr(request, "{\"error\":\"upload failed\"}");
+            }
+
+            writeResult = manager->m_fileSystem->appendStreamingWrite(
+                writeHandle, buffer.data(), static_cast<size_t>(received));
+            if (writeResult != ESP_OK) {
+                manager->m_fileSystem->abortStreamingWrite(writeHandle);
+                httpd_resp_set_type(request, "application/json");
+                httpd_resp_set_status(request, "500 Internal Server Error");
+                setApiCorsHeaders(request);
+                return httpd_resp_sendstr(request, "{\"error\":\"write failed\"}");
+            }
+
+            totalReceived += static_cast<size_t>(received);
+        }
+    } else {
+        while (true) {
+            const int received =
+                httpd_req_recv(request, reinterpret_cast<char*>(buffer.data()), buffer.size());
+            if (received == HTTPD_SOCK_ERR_TIMEOUT) {
+                continue;
+            }
+            if (received <= 0) {
+                break;
+            }
+
+            writeResult = manager->m_fileSystem->appendStreamingWrite(
+                writeHandle, buffer.data(), static_cast<size_t>(received));
+            if (writeResult != ESP_OK) {
+                manager->m_fileSystem->abortStreamingWrite(writeHandle);
+                httpd_resp_set_type(request, "application/json");
+                httpd_resp_set_status(request, "500 Internal Server Error");
+                setApiCorsHeaders(request);
+                return httpd_resp_sendstr(request, "{\"error\":\"write failed\"}");
+            }
+
+            totalReceived += static_cast<size_t>(received);
+        }
+    }
+
+    if (totalReceived == 0U) {
+        manager->m_fileSystem->abortStreamingWrite(writeHandle);
+        httpd_resp_set_type(request, "application/json");
+        httpd_resp_set_status(request, "400 Bad Request");
+        setApiCorsHeaders(request);
+        return httpd_resp_sendstr(request, "{\"error\":\"no content received\"}");
+    }
+
+    writeResult = manager->m_fileSystem->finishStreamingWrite(writeHandle);
+    if (writeResult != ESP_OK) {
+        manager->m_fileSystem->abortStreamingWrite(writeHandle);
+        httpd_resp_set_type(request, "application/json");
+        httpd_resp_set_status(request, "500 Internal Server Error");
+        setApiCorsHeaders(request);
+        return httpd_resp_sendstr(request, "{\"error\":\"save failed\"}");
+    }
+
+    ESP_LOGI(TAG, "Saved firmware upload (%u bytes)", totalReceived);
+    httpd_resp_set_type(request, "application/json");
+    setApiCorsHeaders(request);
+    return httpd_resp_sendstr(request, "{\"status\":\"uploaded\",\"path\":\"/firmware.bin\"}");
+}
+
+esp_err_t DashboardManager::StartFirmwareUpdateHandler(httpd_req_t *request)
+{
+    DashboardManager* manager = static_cast<DashboardManager*>(request->user_ctx);
+    if (manager == nullptr || manager->m_firmwareUpdater == nullptr) {
+        httpd_resp_set_type(request, "application/json");
+        httpd_resp_set_status(request, "400 Bad Request");
+        setApiCorsHeaders(request);
+        return httpd_resp_sendstr(request, "{\"error\":\"updater unavailable\"}");
+    }
+
+    constexpr size_t kBufferSize = 128U;
+    char buffer[kBufferSize]{};
+    const int received = httpd_req_recv(request, buffer,
+                                        std::min(static_cast<size_t>(request->content_len),
+                                                 sizeof(buffer) - 1U));
+    std::string body;
+    if (received > 0) {
+        buffer[received] = '\0';
+        body = buffer;
+    }
+
+    std::string imagePath = "/firmware.bin";
+    const char* pathToken = strstr(body.c_str(), "\"path\"");
+    if (pathToken != nullptr) {
+        const char* start = strchr(pathToken, ':');
+        if (start != nullptr) {
+            const char* value = start + 1;
+            while (*value == ' ' || *value == '\t' || *value == '"') {
+                ++value;
+            }
+            const char* end = value;
+            while (*end != '\0' && *end != '"' && *end != ',' && *end != '}') {
+                ++end;
+            }
+            if (end > value) {
+                imagePath.assign(value, static_cast<size_t>(end - value));
+            }
+        }
+    }
+
+    const esp_err_t result = manager->m_firmwareUpdater->startUpdate(imagePath.c_str());
+    if (result != ESP_OK) {
+        httpd_resp_set_type(request, "application/json");
+        httpd_resp_set_status(request, "500 Internal Server Error");
+        setApiCorsHeaders(request);
+        return httpd_resp_sendstr(request, "{\"error\":\"start failed\"}");
+    }
+
+    httpd_resp_set_type(request, "application/json");
+    setApiCorsHeaders(request);
+    return httpd_resp_sendstr(request, "{\"status\":\"started\",\"path\":\"/firmware.bin\"}");
 }
 
 }

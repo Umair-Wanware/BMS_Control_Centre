@@ -1,1 +1,229 @@
-<!doctype html><meta http-equiv="refresh" content="0;url=/index.html"><title>BMS Control Hub</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BMS Control Centre</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="brand-box">
+      <h3>BMS Control Centre</h3>
+      <p id="OTA">ESP32 Control Hub</p>
+    </div>
+
+    <a href="index.html" class="nav-btn active">Dashboard</a>
+    <a href="telemetry.html" class="nav-btn">Telemetry</a>
+    <a href="charts.html" class="nav-btn">Charts</a>
+    <a href="firmware.html" class="nav-btn">Firmware Update</a>
+    <a href="config.html" class="nav-btn">Configuration</a>
+    <a href="logs.html" class="nav-btn">Logs</a>
+    <a href="diagnostics.html" class="nav-btn">Diagnostics</a>
+    <a href="settings.html" class="nav-btn">Settings</a>
+    <a href="about.html" class="nav-btn">About</a>
+
+    <!-- System Status Card -->
+    <div class="system-status-box">
+      <div class="card-title" style="margin-bottom: 4px;">System Status</div>
+      <div class="status-row">
+        <span>ESP32</span>
+        <span class="pill pill-green">Online</span>
+      </div>
+      <div class="status-row">
+        <span>STM32 BMS</span>
+        <span class="pill pill-green">Online</span>
+      </div>
+      <div class="status-row" style="color: #64748b; margin-top: 2px;">
+        <span>Last Update</span>
+        <span id="last-update-time">12:30:45 PM</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Workspace -->
+  <div class="main-workspace">
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <div class="page-title">
+        <span>DASHBOARD</span>
+        <h2>Live Battery Monitoring</h2>
+      </div>
+
+      <div class="top-tags">
+        <span id="connection-status" class="top-tag">🟢 Connected</span>
+        <span class="top-tag">📶 Wi-Fi: Home_Network</span>
+        <span id="top-clock" class="top-tag">🕒 10:08:00 pm</span>
+        
+        <!-- Interactive Simulated Mode Toggle Button -->
+        <span id="sim-mode-btn" class="top-tag toggle-btn" onclick="toggleSimulatedMode()">
+          Simulated Mode: On
+        </span>
+      </div>
+    </div>
+
+    <!-- 6 Key Cards Row -->
+    <div class="metrics-row">
+      <div class="card">
+        <div class="card-title">Battery Voltage</div>
+        <div id="val-voltage" class="card-value">12.74 V</div>
+        <div class="card-subtext">Range: 10.0 - 15.0 V</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Battery Current</div>
+        <div id="val-current" class="card-value">2.02 A</div>
+        <div id="val-current-status" class="card-subtext">Discharging</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Temperature</div>
+        <div id="val-temp" class="card-value">28.8 °C</div>
+        <div class="card-subtext">Range: 0 - 60 °C</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">State of Charge</div>
+        <div id="val-soc" class="card-value">87%</div>
+        <div class="progress-bg"><div id="bar-soc" class="progress-fill" style="width: 87%;"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Health</div>
+        <div id="val-health" class="card-value">95%</div>
+        <div class="progress-bg"><div id="bar-health" class="progress-fill" style="width: 95%;"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Cycle Count</div>
+        <div class="card-value">128</div>
+        <div class="card-subtext">Optimal condition</div>
+      </div>
+    </div>
+
+    <!-- Main Grid Sections -->
+    <div class="dashboard-grid">
+
+      <!-- Column 1: Live Telemetry & SOC Charts -->
+      <div class="column">
+        <!-- Live Telemetry Graph -->
+        <div class="card" style="flex: 1.2;">
+          <div class="card-title">
+            <span>Live Telemetry</span>
+            <span class="top-tag" style="padding: 2px 6px; font-size: 9px;">1 Minute</span>
+          </div>
+          <div class="chart-box">
+            <svg viewBox="0 0 300 100" preserveAspectRatio="none">
+              <path id="graph-path-1" d="" fill="none" stroke="#38bdf8" stroke-width="2"/>
+              <path id="graph-path-2" d="" fill="none" stroke="#f43f5e" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- SOC Over Time Graph -->
+        <div class="card" style="flex: 1;">
+          <div class="card-title">SOC Over Time</div>
+          <div class="chart-box">
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none">
+              <path id="graph-soc-path" d="" fill="none" stroke="#f97316" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 2: Fault Status & Cell Voltages -->
+      <div class="column">
+        <!-- Fault Status -->
+        <div class="card" style="flex: 1.3;">
+          <div class="card-title" style="margin-bottom: 6px;">
+            <span>Fault Status</span>
+            <span class="ok-badge">No Faults</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="item-row"><span>Over Voltage</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Under Voltage</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Over Current</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Over Temperature</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Short Circuit</span><span class="ok-badge">OK</span></div>
+            <div class="item-row"><span>Cell Imbalance</span><span class="ok-badge">OK</span></div>
+          </div>
+        </div>
+
+        <!-- Cell Voltages -->
+        <div class="card" style="flex: 1;">
+          <div class="card-title" style="margin-bottom: 6px;">Cell Voltages</div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="item-row"><span>Cell 1</span><span id="cell-1" style="color: #38bdf8; font-weight: 600;">3.112 V</span></div>
+            <div class="item-row"><span>Cell 2</span><span id="cell-2" style="color: #38bdf8; font-weight: 600;">3.120 V</span></div>
+            <div class="item-row"><span>Cell 3</span><span id="cell-3" style="color: #38bdf8; font-weight: 600;">3.101 V</span></div>
+            <div class="item-row"><span>Cell 4</span><span id="cell-4" style="color: #38bdf8; font-weight: 600;">3.113 V</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 3: Device Info & Recent Events -->
+      <div class="column">
+        <!-- Device Info -->
+        <div class="card" style="flex: 1.1;">
+          <div class="card-title" style="margin-bottom: 6px;">Device Information</div>
+          <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px;">
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Device Name</span><span style="font-weight: 600;">STM32 BMS</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Firmware Version</span><span>v2.4.1</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Bootloader Version</span><span>v2.1.0</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Hardware Version</span><span>REV B</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Device ID</span><span>BMS-STM32-001</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Uptime</span><span id="val-uptime">2d 14h 23m 15s</span>
+            </div>
+            <div class="item-row" style="background: none; border: none; padding: 1px 0;">
+              <span style="color: #64748b;">Last Reset</span><span>Power On</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Events -->
+        <div class="card" style="flex: 1.2;">
+          <div class="card-title" style="margin-bottom: 6px;">Recent Events</div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="item-row">
+              <span>System started</span>
+              <span style="font-size: 9px; color: #64748b;">12:30:10 PM</span>
+            </div>
+            <div class="item-row">
+              <span>Telemetry connected</span>
+              <span style="font-size: 9px; color: #64748b;">12:30:09 PM</span>
+            </div>
+            <div class="item-row">
+              <span>Config updated</span>
+              <span style="font-size: 9px; color: #64748b;">12:29:02 PM</span>
+            </div>
+            <div class="item-row">
+              <span>Firmware updated</span>
+              <span style="font-size: 9px; color: #64748b;">10:15:33 AM</span>
+            </div>
+            <div class="item-row">
+              <span>Temp warning</span>
+              <span style="font-size: 9px; color: #64748b;">09:12:11 AM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="telemetry-api.js"></script>
+  <script src="main.js"></script> 
+</body>
+</html>

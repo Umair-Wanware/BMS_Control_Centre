@@ -12,7 +12,7 @@
   <div class="sidebar">
     <div class="brand-box">
       <h3>BMS Control Centre</h3>
-      <p>ESP32 Control Hub</p>
+      <p id="OTA">ESP32 Control Hub</p>
     </div>
 
     <a href="index.html" class="nav-btn active">Dashboard</a>
@@ -54,12 +54,12 @@
       </div>
 
       <div class="top-tags">
-        <span class="top-tag">🟢 Connected</span>
+        <span id="connection-status" class="top-tag">🟢 Connected</span>
         <span class="top-tag">📶 Wi-Fi: Home_Network</span>
         <span id="top-clock" class="top-tag">🕒 10:08:00 pm</span>
         
         <!-- Interactive Simulated Mode Toggle Button -->
-        <span id="sim-mode-btn" class="top-tag toggle-btn" onclick="toggleSimulatedMode()">
+        <span id="sim-mode-btn" class="top-tag toggle-btn">
           Simulated Mode: On
         </span>
       </div>
@@ -174,7 +174,7 @@
               <span style="color: #64748b;">Device Name</span><span style="font-weight: 600;">STM32 BMS</span>
             </div>
             <div class="item-row" style="background: none; border: none; padding: 1px 0;">
-              <span style="color: #64748b;">Firmware Version</span><span>v1.0.3</span>
+              <span style="color: #64748b;">Firmware Version</span><span>v2.4.1</span>
             </div>
             <div class="item-row" style="background: none; border: none; padding: 1px 0;">
               <span style="color: #64748b;">Bootloader Version</span><span>v2.1.0</span>
@@ -223,6 +223,7 @@
       </div>
     </div>
   </div>
+  <script src="telemetry-api.js"></script>
   <script src="main.js"></script> 
 </body>
 </html>

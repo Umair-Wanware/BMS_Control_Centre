@@ -1,6 +1,7 @@
 #include "application/application.hpp"
 
 #include "nvs_flash.h"
+#include <string.h>
 
 #include "communication/commands.hpp"
 
@@ -9,7 +10,7 @@ namespace control_hub::application {
 Application::Application()
     : m_fileSystem(), m_storage(m_fileSystem), m_wifi(), m_spi(), m_communication(m_spi),
       m_telemetry(), m_firmwareUpdater(m_communication, m_fileSystem),
-      m_dashboard(&m_telemetry)
+      m_dashboard(&m_telemetry, &m_firmwareUpdater, &m_fileSystem)
 {
 }
 
@@ -34,8 +35,8 @@ esp_err_t Application::initialize()
 
     result = m_fileSystem.initialize();
     if (result != ESP_OK) {
-        m_logger.error("LittleFS initialization failed: %s", esp_err_to_name(result));
-        return result;
+        m_logger.warn("LittleFS unavailable (%s); dashboard works, firmware upload disabled",
+                      esp_err_to_name(result));
     }
 
     result = startNetwork();
@@ -124,8 +125,11 @@ esp_err_t Application::startNetwork()
     storage::NetworkSettings settings{};
     const esp_err_t settingsResult = m_storage.loadNetworkSettings(settings);
     if (settingsResult != ESP_OK) {
-        m_logger.warn("Settings unavailable; starting access point: %s",
-                      esp_err_to_name(settingsResult));
+        m_logger.warn("Settings unavailable; using defaults: %s", esp_err_to_name(settingsResult));
+    }
+
+    if (settings.accessPointSsid[0] == '\0') {
+        strncpy(settings.accessPointSsid, "BMS-Control-Hub", sizeof(settings.accessPointSsid) - 1U);
     }
 
     if (settingsResult == ESP_OK && settings.useStationMode) {

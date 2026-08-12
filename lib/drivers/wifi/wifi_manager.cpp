@@ -2,11 +2,15 @@
 
 #include <string.h>
 
+#include "esp_log.h"
+#include "esp_netif.h"
 #include "esp_wifi.h"
 #include "lwip/inet.h"
 
 namespace control_hub::drivers::wifi {
 namespace {
+
+const char* TAG = "WiFiManager";
 
 bool isLengthValid(const char* value, const size_t minimum, const size_t maximum) noexcept
 {
@@ -200,6 +204,15 @@ esp_err_t WiFiManager::startAccessPoint(const AccessPointConfig& configuration)
         m_ipAddress[0] = '\0';
         giveLock();
     }
+
+    esp_netif_ip_info_t ipInfo{};
+    if (m_accessPointNetif != nullptr && esp_netif_get_ip_info(m_accessPointNetif, &ipInfo) == ESP_OK) {
+        ESP_LOGI(TAG, "AP started SSID=%s  IP=http://" IPSTR "/",
+                 configuration.ssid, IP2STR(&ipInfo.ip));
+    } else {
+        ESP_LOGI(TAG, "AP started SSID=%s  IP=http://192.168.4.1/", configuration.ssid);
+    }
+
     return ESP_OK;
 }
 
@@ -297,6 +310,8 @@ void WiFiManager::handleIpEvent(const int32_t eventId, void* eventData)
     m_connected = true;
     m_reconnectAttempts = 0U;
     giveLock();
+
+    ESP_LOGI(TAG, "Station connected IP=http://" IPSTR "/", IP2STR(&event->ip_info.ip));
 }
 
 bool WiFiManager::takeLock() const noexcept

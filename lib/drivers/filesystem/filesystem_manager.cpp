@@ -167,6 +167,121 @@ esp_err_t FileSystemManager::writeFile(const char* relativePath, const uint8_t* 
     return ESP_OK;
 }
 
+esp_err_t FileSystemManager::beginStreamingWrite(const char* relativePath,
+                                                 StreamingWriteHandle& handle) const
+{
+    handle = StreamingWriteHandle{};
+    if (!m_mounted) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (!isSafeRelativePath(relativePath)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (!takeLock()) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    const std::string absolutePath = makeAbsolutePath(relativePath);
+    const std::string temporaryPath = absolutePath + ".tmp";
+    remove(temporaryPath.c_str());
+    FILE* file = fopen(temporaryPath.c_str(), "wb");
+    if (file == nullptr) {
+        giveLock();
+        return ESP_FAIL;
+    }
+
+    handle.file = file;
+    handle.tempPath = temporaryPath;
+    handle.finalPath = absolutePath;
+    handle.active = true;
+    giveLock();
+    return ESP_OK;
+}
+
+esp_err_t FileSystemManager::appendStreamingWrite(StreamingWriteHandle& handle,
+                                                  const uint8_t* data,
+                                                  const size_t length) const
+{
+    if (!handle.active || handle.file == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (length == 0U) {
+        return ESP_OK;
+    }
+
+    if (data == nullptr) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (!takeLock()) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    auto* file = static_cast<FILE*>(handle.file);
+    const size_t bytesWritten = fwrite(data, 1U, length, file);
+    const bool failed = bytesWritten != length || ferror(file) != 0;
+    giveLock();
+    return failed ? ESP_FAIL : ESP_OK;
+}
+
+esp_err_t FileSystemManager::finishStreamingWrite(StreamingWriteHandle& handle) const
+{
+    if (!handle.active || handle.file == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (!takeLock()) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    auto* file = static_cast<FILE*>(handle.file);
+    const bool failed = fflush(file) != 0 || fclose(file) != 0;
+    handle.file = nullptr;
+    handle.active = false;
+
+    if (failed) {
+        remove(handle.tempPath.c_str());
+        giveLock();
+        return ESP_FAIL;
+    }
+
+    if (rename(handle.tempPath.c_str(), handle.finalPath.c_str()) != 0) {
+        remove(handle.tempPath.c_str());
+        giveLock();
+        return ESP_FAIL;
+    }
+
+    handle.tempPath.clear();
+    handle.finalPath.clear();
+    giveLock();
+    return ESP_OK;
+}
+
+esp_err_t FileSystemManager::abortStreamingWrite(StreamingWriteHandle& handle) const
+{
+    if (!handle.active || handle.file == nullptr) {
+        handle = StreamingWriteHandle{};
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (!takeLock()) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    auto* file = static_cast<FILE*>(handle.file);
+    fclose(file);
+    remove(handle.tempPath.c_str());
+    handle.file = nullptr;
+    handle.tempPath.clear();
+    handle.finalPath.clear();
+    handle.active = false;
+    giveLock();
+    return ESP_OK;
+}
+
 esp_err_t FileSystemManager::removeFile(const char* relativePath) const
 {
     if (!m_mounted) {

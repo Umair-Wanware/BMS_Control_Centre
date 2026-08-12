@@ -130,14 +130,6 @@ async function refreshLiveTelemetry() {
     const values = telemetryToDisplayValues(payload);
     if (!values.valid) {
       updateConnectionStatus(false);
-      const vEl = document.getElementById('val-voltage');
-      const iEl = document.getElementById('val-current');
-      const tEl = document.getElementById('val-temp');
-      const socEl = document.getElementById('val-soc');
-      if (vEl) vEl.innerText = '-- V';
-      if (iEl) iEl.innerText = '-- A';
-      if (tEl) tEl.innerText = '-- °C';
-      if (socEl) socEl.innerText = '--%';
       return;
     }
     applyTelemetryValues(values);
